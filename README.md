@@ -89,26 +89,25 @@ You should see the help text explaining the [Command Line Interface](documentati
 
 You have 4 ways to operate. The recommended operations mode is mode 4. But the other 3 modes are explained here for completeness:
 
-1. Command line Interface<br/>You can use either of the following commands to operate a shutter called corridor
+1. Command line Interface<br/>You can use either of the following commands to operate a shutter called corridor<br/>   
+The first one will raise the shutter. The second one will lower the shutter. The third one - **without starting the web interface** - will lower the shutter at sunset and raise it again 60 minutes after sunrise.
 ```csh
 sudo /home/pi/Pi-Somfy/operateShutters.py corridor -c /home/pi/Pi-Somfy/operateShutters.conf -u
 sudo /home/pi/Pi-Somfy/operateShutters.py corridor -c /home/pi/Pi-Somfy/operateShutters.conf -d
 sudo /home/pi/Pi-Somfy/operateShutters.py corridor -c /home/pi/Pi-Somfy/operateShutters.conf -dd 0 60
-```    
-The first one will raise the shutter. The second one will lower the shutter. The third one - **without starting the web interface** - will lower the shutter at sunset and raise it again 60 minutes after sunrise
+``` 
 
-1. Manually start Web interface only<br/>You can start the web-interface by typing:
+2. Manually start Web interface only<br/>You can start the web-interface by typing:<br/>Once started, you can access the web interface at http://IPaddressOfYouPi:80. From there you can further modify your settings.   
 ```csh
     sudo /home/pi/Pi-Somfy/operateShutters.py -c /home/pi/Pi-Somfy/operateShutters.conf -a 
 ```    
-Once started, you can access the web interface at http://IPaddressOfYouPi:80. From there you can further modify your settings.   
 
-1. Manually start Web interface and Alexa interface<br/>You can start the web-interface by typing:
+3. Manually start Web interface and Alexa interface<br/>You can start the web-interface by typing:
 ```csh
     sudo /home/pi/Pi-Somfy/operateShutters.py -c /home/pi/Pi-Somfy/operateShutters.conf -a -e
 ```    
 
-1. Finally, the recommended way to operate it is using crontab on boot time. You can do so by typing:
+4. Finally, the recommended way to operate it is using crontab on boot time. You can do so by typing:
 ```csh
     sudo crontab –e 
 ```
