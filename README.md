@@ -135,9 +135,9 @@ First time you use the Web GUI, it's important that you follow these 3 steps:
 1. You will need to set up your shutters and program your remote control. To do so, select the second menu item "Add/Remove Shutters". <br/>![Screenshot](documentation/p1.png)<br/>
 Click the "Add" button, select the name for your shutter (this is also the name that the Amazon Alexa app will use later) and click on the "save" icon. Then follow the on-screen instructions for programming your shutter.
 
-1. Next, make sure your shutters work. The easiest way to verify is to use the "Manual Operations" menu <br/>![Screenshot](documentation/p2.png)<br/>. You can rise and lower your shutters by clicking on the relevant icons.
+1. Next, make sure your shutters work. The easiest way to verify is to use the "Manual Operations" menu. <br/>![Screenshot](documentation/p2.png)<br/> You can rise and lower your shutters by clicking on the relevant icons.
 
-1. Finally, it's time to program your shutters schedule. To do so, use the "Scheduled Operations" menu <br/>![Screenshot](documentation/p3.png)<br/>.
+1. Finally, it's time to program your shutters schedule. To do so, use the "Scheduled Operations" menu. <br/>![Screenshot](documentation/p3.png)<br/>
 
 
 ## 6 Alexa Integration
