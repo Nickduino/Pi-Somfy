@@ -18,7 +18,7 @@ As of now, you have to build your own hardware. Here are the steps to do so.
 Once you have all the hardware handy, now it's time to exchange the oscillator, which requires a bit of soldering. Reason for this is that the emitter you bought uses a common 433.93 MHz frequency, Somfy however requires a 433.__42__ MHz frequency. Take the following 3 easy steps to exchange the oscillator
 1. Identify the oscillator. It looks like this (marked with a red circle): <br/>![Front view](documentation/RF%20Transmitter%20front.jpg). <br/>Turn the RF Transmitter around. You will see that the oscillator is soldered in on 3 points <br/>![Back View](documentation/RF%20Transmitter%20back.jpg). 
 1. While pulling the oscillator from the front, heat up the 3 soldering point on the back with the soldering iron until the oscillator is detached from the board. 
-1. Not put in the new oscillator (make sure all 3 pins connect through the print) and solder it in again.
+1. Now put in the new oscillator (make sure all 3 pins connect through the print) and solder it in again.
 
 And you are done! As mentioned above, I got step 3 wrong the first time round. One of the pins was not properly connected and I was lucky I ordered spare emitters and oscillators
 
