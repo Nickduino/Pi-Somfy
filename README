@@ -1,0 +1,20 @@
+sudo pip3 install ephem configparser Flask
+
+sudo apt-get install pigpio python-pigpio python3-pigpio
+
+#########################
+## START AS CRONTAB:
+#########################
+@reboot sleep 60;/home/pi/pi-somfy/operateShutters.py -c /home/pi/pi-somfy/operateShutters.conf -a -e
+0 * * * * /home/pi/pi-somfy/operateShutters.py -c /home/pi/pi-somfy/operateShutters.conf -a -e 
+
+#########################
+## START AS COMMAND LINE
+#########################
+sudo /home/pi/pi-somfy/operateShutters.py
+sudo /home/pi/pi-somfy/operateShutters.py corridor -c /home/pi/pi-somfy/operateShutters.conf -u
+sudo /home/pi/pi-somfy/operateShutters.py corridor -c /home/pi/pi-somfy/operateShutters.conf -d
+sudo /home/pi/pi-somfy/operateShutters.py corridor -c /home/pi/pi-somfy/operateShutters.conf -dd 0 60
+sudo /home/pi/pi-somfy/operateShutters.py -c /home/pi/pi-somfy/operateShutters.conf -a -e
+
+
