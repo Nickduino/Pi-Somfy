@@ -1,0 +1,304 @@
+body {
+    margin:50px !important;
+    overflow:hidden;
+}
+
+.panel-title .glyphicon { 
+    margin-right:20px; 
+}
+
+.panel-title { 
+    font-size: 18px;
+    font-weight: bold;
+    font-family: Arial;
+}
+
+.panel-body.scroll {
+    margin: 0px !important;
+    padding: 0px !important;
+    overflow: hidden !important;
+}
+
+.panel-body.nonscroll {
+    margin: 0px; 
+    padding: 25px;
+    overflow: hidden; 
+}
+
+.panel-body table tr td { 
+    padding-left: 15px 
+}
+
+.panel-body .table {
+    margin-bottom: 0px; 
+}
+
+.panel-collapse .collapse .in {
+    height: 100%
+}
+
+.mapOSM {
+    width:100%; !important;
+    height:90%; !important;
+    border:1px solid #999; !important;
+}
+
+.table-wrapper {
+    width: 100%;
+    background: #fff;
+    padding: 20px;
+    margin: 0px;
+    overflow-y: auto;
+}
+
+.table-title {
+    padding-bottom: 10px;
+    margin: 0 0 10px;
+}
+
+.table-title h2 {
+    margin: 6px 0 0;
+    font-size: 22px;
+}
+
+.table-title .add-new {
+    float: left;
+    height: 30px;
+    font-weight: bold;
+    font-size: 12px;
+    text-shadow: none;
+    min-width: 100px;
+    border-radius: 50px;
+    line-height: 13px;
+}
+
+.table-title .add-new i {
+    margin-right: 4px;
+}
+
+.table-action {
+    display: none;
+}
+
+.table-description {
+    display: none;
+}
+
+.td-action {
+    white-space: nowrap
+}
+
+table.table {
+    table-layout: fixed;
+    width: 100%;
+}
+
+table.table tr th, table.table tr td {
+    border-color: #e9e9e9;
+}
+
+table.table th i {
+    font-size: 13px;
+    margin: 0 5px;
+    cursor: pointer;
+}
+
+table.table th:last-child {
+    width: 140px;
+}
+
+table.table td a {
+    cursor: pointer;
+    display: inline-block;
+    margin: 0 5px;
+    min-width: 24px;
+}    
+
+table.table td a.save {
+    color: #666666;
+}
+
+table.table td a.edit {
+    color: #666666;
+}
+
+table.table td a.delete {
+    color: #666666;
+}
+
+table.table td a.up {
+    color: #666666;
+}
+
+table.table td a.down {
+    color: #666666;
+}
+
+table.table td a.stop {
+    color: #666666;
+}
+
+table.table td i {
+    font-size: 19px;
+}
+
+table.table td a.save i {
+    font-size: 24px;
+    margin-right: -1px;
+    position: relative;
+    top: 3px;
+}    
+
+table.table .form-control {
+    height: 32px;
+    line-height: 32px;
+    box-shadow: none;
+    border-radius: 2px;
+}
+
+table.table .form-control.error {
+    border-color: #f50000;
+}
+
+table.table td .save {
+    display: none;
+}
+
+.vertical-alignment-helper {
+    display:table;
+    height: 100%;
+    width: 100%;
+    pointer-events:none; /* This makes sure that we can still click outside of the modal to close it */
+}
+
+.vertical-align-center {
+    /* To center vertically */
+    display: table-cell;
+    vertical-align: middle;
+    pointer-events:none;
+}
+
+.modal-content {
+    /* Bootstrap sets the size of the modal in the modal-dialog class, we need to inherit it */
+    width:inherit;
+    max-width:inherit; /* For Bootstrap 4 - to avoid the modal window stretching full width */
+    height:inherit;
+    /* To center horizontally */
+    margin: 0 auto;
+    pointer-events: all;
+}
+
+.gly-spin {
+  -webkit-animation: spin 2s infinite linear;
+  -moz-animation: spin 2s infinite linear;
+  -o-animation: spin 2s infinite linear;
+  animation: spin 2s infinite linear;
+}
+
+@-moz-keyframes spin {
+  0% {
+    -moz-transform: rotate(0deg);
+  }
+  100% {
+    -moz-transform: rotate(359deg);
+  }
+}
+
+@-webkit-keyframes spin {
+  0% {
+    -webkit-transform: rotate(0deg);
+  }
+  100% {
+    -webkit-transform: rotate(359deg);
+  }
+}
+
+@-o-keyframes spin {
+  0% {
+    -o-transform: rotate(0deg);
+  }
+  100% {
+    -o-transform: rotate(359deg);
+  }
+}
+
+@keyframes spin {
+  0% {
+    -webkit-transform: rotate(0deg);
+    transform: rotate(0deg);
+  }
+  100% {
+    -webkit-transform: rotate(359deg);
+    transform: rotate(359deg);
+  }
+}
+
+.row-eq-height {
+  display: -webkit-box;
+  display: -webkit-flex;
+  display: -ms-flexbox;
+  display:         flex;
+  align-items: center;     /* Align the flex-items vertically */
+  justify-content: center; /* Optional, to align inner flex-items
+                              horizontally within the column  */
+}
+
+.timeTypeUp, .timeTypeDown, .repeatTypeUp, .repeatTypeDown {
+  cursor: pointer;
+}
+
+.timeTypeUp:hover, .repeatTypeUp:hover {
+   position: relative;
+   top: -1px;
+}
+
+.timeTypeDown:hover, .repeatTypeDown:hover {
+   position: relative;
+   top: 1px;
+}
+
+
+.weekDays-selector input {
+  display: none!important;
+  margin: 0px;!important;
+  padding: 0px;!important;
+
+}
+
+.weekDays-selector label {
+  display: inline-block;
+  border-radius: 50%;
+  background: #F0F0F0;
+  height: 17px;
+  width: 17px;
+  margin: 0px;
+  padding: 0px;
+  line-height: 15px;
+  text-align: center;
+  cursor: pointer;
+  font-size: 10px;
+  font-weight: bold;
+}
+
+.shutterAction {
+   cursor: pointer;
+}
+
+.shutterActionUp:hover {
+   position: relative; 
+   top: -1px;
+}
+
+.shutterActionDown:hover {
+   position: relative; 
+   top: 1px;
+}
+
+.inactiveDirection {
+   color: #dddddd;
+}
+
+.dropdown-toggle.btn.error {
+    border-color: #f50000;
+}
+
