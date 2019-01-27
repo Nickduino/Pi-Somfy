@@ -1,9 +1,7 @@
 #!/usr/bin/python3
 import logging
 try:
-    import ssl
     from flask import Flask, render_template, request, Response, jsonify, json
-    from OpenSSL import crypto
 except Exception as e1:
     print("\n\nThis program requires the Flask library. Please see the project documentation at https://github.com/jgyates/genmon.\n")
     print("Error: " + str(e1))
@@ -248,6 +246,8 @@ class FlaskAppWrapper(MyLog):
 
     def run(self):
         if self.config.UseHttps:
+            import ssl
+            from OpenSSL import crypto
             self.LogInfo("Starting secure WebServer on Port "+str(self.config.HTTPSPort))
             self.app.run(host="0.0.0.0", port=self.config.HTTPSPort, threaded = True, ssl_context=self.generate_adhoc_ssl_context(), use_reloader = False, debug = False)
         else:
