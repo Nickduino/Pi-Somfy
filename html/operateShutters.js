@@ -180,7 +180,7 @@ function addShutter(temp_id, name) {
                       $(modalCallerIconElement).addClass("glyphicon-floppy-save").removeClass("glyphicon-refresh").removeClass("gly-spin");
         	      $(modalCallerIconElement).parents("tr").find(".save, .edit").toggle();
 	              $(modalCallerIconElement).parents("tr").find(".delete").show();
-                      BootstrapDialog.show({type: BootstrapDialog.TYPE_DANGER, title: 'Error', message:'Received Error from Server: '+result.message});
+                      BootstrapDialog.show({type: BootstrapDialog.TYPE_DANGER, title: 'Error', message:'Received Error from Server: '+result.message, onhide: function(){GetStartupInfo(false);}});
                    }
                }, "json");
 }
@@ -194,6 +194,19 @@ function editShutter(id, name, resetIcon) {
                    if ((status=="success") && (result.status == "OK")) {
                       BootstrapDialog.show({type: BootstrapDialog.TYPE_INFO, title: 'Information', message:'Please Note:<br>If you are using the Alexa (Echo Speaker) integration, please read the following carefully.<br><br>Alexa does not allow to automatically rename your device. To rename your device on Alexa, please delete your current device and then ask Alexa to discover new devices.'});
                       GetStartupInfo(false);
+                   } else {
+                      BootstrapDialog.show({type: BootstrapDialog.TYPE_DANGER, title: 'Error', message:'Received Error from Server: '+result.message, onhide: function(){GetStartupInfo(false);}});
+                   }
+               }, "json");
+}
+
+function programShutter(id) {
+    var url = baseurl.concat("program");
+      $.post(  url,
+               {shutter: id},
+               function(result, status){
+                   if ((status=="success") && (result.status == "OK")) {
+                      BootstrapDialog.show({type: BootstrapDialog.TYPE_INFO, title: 'Information', message:'Program Code has been sent to Shutter.'});
                    } else {
                       BootstrapDialog.show({type: BootstrapDialog.TYPE_DANGER, title: 'Error', message:'Received Error from Server: '+result.message, onhide: function(){GetStartupInfo(false);}});
                    }
@@ -648,6 +661,11 @@ function setupListeners() {
     	});		
 	$(this).parents("tr").find(".save, .edit, .delete").toggle();
 	$(".addShutters").attr("disabled", "disabled");
+    });
+
+    // Edit row on edit button click
+    $(document).on("click", ".programShutters", function(){		
+        programShutter($(this).parents("tr").attr('name'));
     });
 
     // Edit row on edit button click

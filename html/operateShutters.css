@@ -122,6 +122,10 @@ table.table td a.edit {
     color: #666666;
 }
 
+table.table td a.program {
+    color: #666666;
+}
+
 table.table td a.delete {
     color: #666666;
 }
