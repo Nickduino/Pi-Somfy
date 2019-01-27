@@ -114,7 +114,7 @@ class FlaskAppWrapper(MyLog):
 
     def program(self, params):
         shutter=params.get('shutter', 0, type=str)
-        self.LogDebug("stop shutter \""+shutter+"\"")
+        self.LogDebug("program shutter \""+shutter+"\"")
         if (not shutter in self.config.Shutters):
             return {'status': 'ERROR', 'message': 'Shutter does not exist'}
         self.shutter.program(shutter)
@@ -131,7 +131,7 @@ class FlaskAppWrapper(MyLog):
         self.LogDebug("add shutter: "+ name)
         if (name in self.config.ShuttersByName):
             return {'status': 'ERROR', 'message': 'Name is not unique'}
-        elif (("," in name) or (" " in name)):
+        elif ("," in name):
             return {'status': 'ERROR', 'message': 'New name can not contain SPACES or COMMAS'}
         else:
             tmp_id = int(self.config.RTS_Address, 16)
