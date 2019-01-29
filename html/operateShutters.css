@@ -284,6 +284,11 @@ table.table td .save {
   font-weight: bold;
 }
 
+.weekDays-selector label.error {
+  background: #FFC0CB;!important;
+  color: #FF0000;!important;
+}
+
 .shutterAction {
    cursor: pointer;
 }

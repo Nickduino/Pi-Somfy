@@ -514,7 +514,11 @@ function setupListeners() {
         if ((thisRow.find("#scheduleEdit .repeatType.in").attr('data-optionvalue') == "once") && (!repeatValueField.val())) {
            repeatValueField.addClass("error");
            empty = true;
+        } else if ((thisRow.find("#scheduleEdit .repeatType.in").attr('data-optionvalue') == "weekday") && (thisRow.find('#scheduleEdit .repeatValue[data-optionvalue="weekday"] input:checked[type="checkbox"]').length == 0)) {
+           thisRow.find('.weekDays-selector label').addClass("error");
+           empty = true;
         } else {
+           thisRow.find('.weekDays-selector label').removeClass("error");
            repeatValueField.removeClass("error");
         }
 
