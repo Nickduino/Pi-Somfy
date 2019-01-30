@@ -87,6 +87,8 @@ You should see the help text explaining the [Command Line Interface](documentati
 
 ## 4 Usage
 
+Note that the config file won't exists the first time you run the application. In that case, a new config file will be reated based on the name you specified (e.g. /home/pi/Pi-Somfy/operateShutters.conf).
+
 You have 4 ways to operate. The recommended operations mode is mode 4. But the other 3 modes are explained here for completeness:
 
 1. Command line Interface<br/>You can use either of the following commands to operate a shutter called corridor<br/>   
