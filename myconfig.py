@@ -116,7 +116,8 @@ class MyConfig (MyLog):
     #---------------------MyConfig::SetSection----------------------------------
     def SetSection(self, section):
 
-        if not (isinstance(section, str) or isinstance(section, unicode)) or not len(section):
+        # if not (isinstance(section, str) or isinstance(section, unicode)) or not len(section):
+        if not len(section):
             self.LogError("Error in MyConfig:ReadValue: invalid section: " + str(section))
             return False
         self.Section = section

@@ -23,6 +23,7 @@ try:
     from myscheduler import Scheduler
     from mywebserver import FlaskAppWrapper
     from myalexa import Alexa
+    from shutil import copyfile
 except Exception as e1:
     print("\n\nThis program requires the modules located from the same github repository that are not present.\n")
     print("Error: " + str(e1))
@@ -207,8 +208,13 @@ class operateShutters(MyLog):
             sys.exit(1)
 
         if not os.path.isfile(self.ConfigFile):
-            self.LogConsole("Missing config file : " + self.ConfigFile)
-            sys.exit(1)
+            self.LogConsole("Creating new config file : " + self.ConfigFile)
+            defaultConfigFile = os.path.dirname(__file__)+'/defaultConfig.conf'
+            if not os.path.isfile(defaultConfigFile):
+                self.LogConsole("Failure to create new config file: "+defaultConfigFile)
+                sys.exit(1)
+            else: 
+                copyfile(defaultConfigFile, self.ConfigFile)
 
         # read config file
         self.config = MyConfig(filename = self.ConfigFile, log = self.console)

@@ -58,7 +58,8 @@ class Event:
             raise ValueError("%s is not a valid value for TIMEVALUE (astro)." % timeValue)
         self.timeValue = timeValue
 
-        if not ((isinstance(shutterAction, str)) and ((shutterAction.startswith("up") or shutterAction.startswith("down")))):
+        # if not ((isinstance(shutterAction, str)) and ((shutterAction.startswith("up") or shutterAction.startswith("down")))):
+        if not ((shutterAction.startswith("up") or shutterAction.startswith("down"))):
             raise ValueError("%s is not a valid value for ACTION." % shutterAction)
         self.shutterAction = shutterAction
 
