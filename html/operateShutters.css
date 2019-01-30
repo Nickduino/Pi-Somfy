@@ -289,6 +289,11 @@ table.table td .save {
   color: #FF0000;!important;
 }
 
+.weekDays-selector label.selected {
+  background: #286090;!important;
+  color: #ffffff;!important;
+}
+
 .shutterAction {
    cursor: pointer;
 }

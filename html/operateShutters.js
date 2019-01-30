@@ -344,7 +344,7 @@ function setupTableSchedule () {
            for (var i in evt['repeatValue']) {
               var item = thisRow.find('#scheduleEdit .repeatValue[data-optionvalue="weekday"] input[type=checkbox]#'+evt['repeatValue'][i])
               item.prop('checked', true);
-              $(item).parent().css('color', '#ffffff').css('background', '#286090');
+              $(item).parent().addClass('selected');
            }
         }
         if (evt['shutterAction'].substring(0, 2) == "up") {
@@ -384,7 +384,7 @@ function setupTableSchedule () {
     $('[rowtype="existing"] .clockpicker').clockpicker({placement: 'top', align: 'left', donetext: 'Done', autoclose: true});
 
     $('[rowtype="existing"] .date').datepicker({placement: 'top', autoclose: true, format: "yyyy/mm/dd"});    
-    $('[rowtype="existing"] .weekDays-selector :checkbox').change(function() { $(this).parent().css('color', (this.checked) ? '#ffffff' : '#000000').css('background', (this.checked) ? '#286090' : '#f0f0f0')});
+    $('[rowtype="existing"] .weekDays-selector :checkbox').change(function() { if (this.checked) { $(this).parent().addClass('selected') } else { $(this).parent().removeClass('selected')}});
     
     $('[rowtype="existing"] .durationList').multiselect({dropUp: true, maxHeight: 100, buttonWidth: '75px'});
     $('[rowtype="existing"] .shuttersList').multiselect({dropUp: true, maxHeight: 100, includeSelectAllOption: true, buttonWidth: '130px', nonSelectedText: 'Please Select...', numberDisplayed: 1});
@@ -448,7 +448,7 @@ function setupListeners() {
         thisRow.find('.repeatValue').hide();
         thisRow.find('.repeatValue.in').show();
         thisRow.find('.date').datepicker({placement: 'top', autoclose: true, format: "yyyy/mm/dd"});
-        thisRow.find('.weekDays-selector :checkbox').change(function() { $(this).parent().css('color', (this.checked) ? '#ffffff' : '#000000').css('background', (this.checked) ? '#286090' : '#f0f0f0')});
+        thisRow.find('.weekDays-selector :checkbox').change(function() { if (this.checked) { $(this).parent().addClass('selected') } else { $(this).parent().removeClass('selected')}});
         var shutterIds = Object.keys(config.Shutters);
         shutterIds.sort(function(a, b) { return config.Shutters[a].toLowerCase() > config.Shutters[b].toLowerCase()}).forEach(function(shutter) {
            thisRow.find('.shuttersList').append('<option value="'+shutter+'">'+config.Shutters[shutter]+'</option>');
