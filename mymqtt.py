@@ -12,6 +12,8 @@ import pigpio
 import socket
 import signal, atexit, subprocess, traceback
 import threading
+import json
+from copy import deepcopy
 
 try:
     # pip3 install paho-mqtt
@@ -21,6 +23,37 @@ except Exception as e1:
     print("\n\nThis program requires the modules located from the same github repository that are not present.\n")
     print("Error: " + str(e1))
     sys.exit(2)
+
+
+class DiscoveryMsg():
+    DISCOVERY_MSG = {"name": "",
+                     "command_topic": "somfy/%s/level/cmd",
+                     "position_topic": "somfy/%s/level/set_state",
+                     "set_position_topic": "somfy/%s/level/cmd",
+                     "payload_open": "100",
+                     "payload_close": "0",
+                     "state_open": "100",
+                     "state_closed": "0",
+                     "unique_id": "",
+                     "device": {"name": "",
+                                "model": "Pi-Somfy controlled shutter",
+                                "manufacturer": "Nickduino",
+                                "identifiers": ""
+                                }
+                     }
+
+    def __init__(self, shutter, shutterId):
+        self.discovery_msg = deepcopy(DiscoveryMsg.DISCOVERY_MSG)
+        self.discovery_msg["name"] = shutter
+        self.discovery_msg["command_topic"] = DiscoveryMsg.DISCOVERY_MSG["command_topic"] % shutterId
+        self.discovery_msg["position_topic"] = DiscoveryMsg.DISCOVERY_MSG["position_topic"] % shutterId
+        self.discovery_msg["set_position_topic"] = DiscoveryMsg.DISCOVERY_MSG["set_position_topic"] % shutterId
+        self.discovery_msg["unique_id"] = shutterId
+        self.discovery_msg["device"]["name"] = shutter
+        self.discovery_msg["device"]["identifiers"] = shutterId
+
+    def __str__(self):
+        return json.dumps(self.discovery_msg)
 
 
 class MQTT(threading.Thread, MyLog):
@@ -77,7 +110,7 @@ class MQTT(threading.Thread, MyLog):
         
     def sendStartupInfo(self):
         for shutter, shutterId in sorted(self.config.ShuttersByName.items(), key=lambda kv: kv[1]):
-            self.sendMQTT("homeassistant/cover/"+shutterId+"/config", '{"name": "'+shutter+'", "command_topic": "somfy/'+shutterId+'/level/cmd", "position_topic": "somfy/'+shutterId+'/level/set_state", "set_position_topic": "somfy/'+shutterId+'/level/cmd", "payload_open": "100", "payload_close": "0", "state_open": "100", "state_closed": "0"}')
+            self.sendMQTT("homeassistant/cover/"+shutterId+"/config", str(DiscoveryMsg(shutter, shutterId)))
 
     def on_connect(self, client, userdata, flags, rc):
         self.LogInfo("Connected to MQTT with result code "+str(rc))
