@@ -49,7 +49,7 @@ class DiscoveryMsg():
         self.discovery_msg["position_topic"] = DiscoveryMsg.DISCOVERY_MSG["position_topic"] % shutterId
         self.discovery_msg["set_position_topic"] = DiscoveryMsg.DISCOVERY_MSG["set_position_topic"] % shutterId
         self.discovery_msg["unique_id"] = shutterId
-        self.discovery_msg["device"]["name"] = shutter
+        self.discovery_msg["device"]["name"] = "Somfy " + shutter.replace('_', ' ').title()
         self.discovery_msg["device"]["identifiers"] = shutterId
 
     def __str__(self):
