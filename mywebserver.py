@@ -7,7 +7,7 @@ except Exception as e1:
     print("Error: " + str(e1))
     sys.exit(2)
 
-import sys, signal, os, socket, atexit, time, subprocess, threading, signal, errno, collections
+import sys, signal, os, socket, atexit, time, subprocess, threading, signal, errno, collections, traceback
 
 try:
     from mylog import MyLog
@@ -87,7 +87,9 @@ class FlaskAppWrapper(MyLog):
                 self.LogWarn("UNKNOWN COMMAND " + command)
                 return Response("Error: Unknown Command: " + command, status=400)
         except Exception as e1:
+            tb = traceback.format_exc()
             self.LogErrorLine("Error in Process Command: " + command + ": " + str(e1))
+            self.LogError(tb)
             return Response("Error: Exception occured", status=400)
 
     def validatePassword(self, header=True):

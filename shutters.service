@@ -1,11 +1,12 @@
 
 [Unit]
 Description=Pi Somfy Shutter Service
-After=network-online.target
+After=network-online.target mosquitto.service
+Before=hass.service
 
 [Service]
-User=pi
-ExecStart=sudo /usr/bin/python3 /home/pi/Pi-Somfy/operateShutters.py -c /home/pi/Pi-Somfy/operateShutters.conf -a -e -m
+User=root
+ExecStart=sudo /home/Pi-SomfyEnv/bin/python /home/Pi-SomfyCode/operateShutters.py -c /home/Pi-SomfyCode/operateShutters.conf -a -m
 Environment=PYTHONUNBUFFERED=1
 Restart=on-failure
 Type=exec

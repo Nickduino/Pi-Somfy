@@ -1,3 +1,9 @@
+# Fork notes
+
+sdb9696: This fork was taken from https://github.com/Nickduino/Pi-Somfy in order to add support for the RFM69HCW transmitter.  I used the adafruit RFM69HCW for this.
+
+I will update the README at some point to include the wiring I have in place for my RFM69 but in the meantime the key thing to note is that the RFM69 will be in continuous mode and the DATA/DIO2 PIN will be used to transmit.  This is important as most RFM69 examples out there are using packet mode and dismiss the DIO pins as unnecessary.
+
 # Pi-Somfy
 
 ## 1 Overview

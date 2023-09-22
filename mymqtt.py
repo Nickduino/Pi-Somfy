@@ -155,6 +155,7 @@ class MQTT(threading.Thread, MyLog):
         self.shutter.registerCallBack(self.set_state)
         
         # Startup the mqtt listener
+        error_failure_count = 5
         error = 0
         while not self.shutdown_flag.is_set():
             # Loop until the server is available
@@ -162,12 +163,14 @@ class MQTT(threading.Thread, MyLog):
                 self.LogInfo("Connecting to MQTT server")
                 self.t.connect(self.config.MQTT_Server,self.config.MQTT_Port)
                 time.sleep(10)
-                # if self.config.EnableDiscovery == True:
-                #     self.sendStartupInfo()
                 break
             except Exception as e:
                 error += 1
                 self.LogInfo("Exception in MQTT connect " + str(error) + ": "+ str(e.args))
+                if error >= error_failure_count:
+                    self.LogError(f"MQTT connect error count exceeded failure threshold of {error_failure_count}.  MQQT functionality will not be active.  Have you installed mosquitto?")
+                    return
+                time.sleep(2)
 
         error = 0
         while not self.shutdown_flag.is_set():
@@ -182,7 +185,10 @@ class MQTT(threading.Thread, MyLog):
                     time.sleep(10)
             except Exception as e:
                 error += 1
-                self.LogInfo("Critical exception " + str(error) + ": "+ str(e.args))
+                self.LogInfo("Critical MQTT exception " + str(error) + ": "+ str(e.args))
+                if error >= error_failure_count:
+                    self.LogError(f"MQTT connect error count exceeded failure threshold of {error_failure_count}.  MQQT functionality will not be active.")
+                    return
                 time.sleep(0.5) #Wait half a second when an exception occurs
 
         self.LogError("Received Signal to shut down MQTT thread")

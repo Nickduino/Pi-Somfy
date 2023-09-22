@@ -1,7 +1,7 @@
 #!/bin/bash
 
-cd /home/pi/Pi-Somfy/
-cp /home/pi/Pi-Somfy/shutters.service /etc/systemd/system/shutters.service
+cd /home/Pi-SomfyCode/
+cp /home/Pi-SomfyCode/shutters.service /etc/systemd/system/shutters.service
 
 systemctl daemon-reload
 systemctl enable shutters

@@ -4,3 +4,4 @@ Flask
 paho-mqtt
 pigpio
 requests
+numpy
