@@ -196,11 +196,12 @@ class FlaskAppWrapper(MyLog):
                     if tmp_id == int(key, 16):
                         conflict = True
             id = "0x%0.2X" % tmp_id
+            idS = str(id).upper()
             code = 1
-            self.LogDebug("got a new shutter id: "+id)
-            self.config.WriteValue(str(id), str(name)+",True,"+str(duration), section="Shutters");
-            self.config.WriteValue(str(id), str(code), section="ShutterRollingCodes");
-            self.config.WriteValue(str(id), str(None), section="ShutterIntermediatePositions");
+            self.LogDebug("got a new shutter id: "+ idS)
+            self.config.WriteValue(idS, str(name)+",True,"+str(duration), section="Shutters");
+            self.config.WriteValue(idS, str(code), section="ShutterRollingCodes");
+            self.config.WriteValue(idS, str(None), section="ShutterIntermediatePositions");
             self.config.ShuttersByName[name] = id
             self.config.Shutters[id] = {'name': name, 'code': code, 'duration': duration, 'durationDown': int(duration), 'durationUp': int(duration), 'intermediatePosition': None}
             return {'status': 'OK', 'id': id}
@@ -228,7 +229,8 @@ class FlaskAppWrapper(MyLog):
         elif not self.isfloat(duration):
             return {'status': 'ERROR', 'message': 'seconds must be a number (may contain decimals)'}
         else:
-            self.config.WriteValue(str(id), str(name)+",True,"+str(duration), section="Shutters");
+            idS=str(id).upper()
+            self.config.WriteValue(idS, str(name)+",True,"+str(duration), section="Shutters");
             self.config.ShuttersByName.pop(self.config.Shutters[id]['name'], None)
             self.config.ShuttersByName['name'] = id
             self.config.Shutters[id]['name'] = name
@@ -241,7 +243,12 @@ class FlaskAppWrapper(MyLog):
         if (not id in self.config.Shutters):
             return {'status': 'ERROR', 'message': 'Shutter does not exist'}
         else:
-            self.config.WriteValue(str(id), self.config.Shutters[id]['name']+",False,"+self.config.Shutters[id]['duration'], section="Shutters");
+            idS=str(id).upper()
+            self.config.WriteValue(idS, self.config.Shutters[id]['name']+",False,"+self.config.Shutters[id]['duration'], section="Shutters");
+            self.config.WriteValue(
+                idS, str(None), section="ShutterRollingCodes")
+            self.config.WriteValue(idS, str(None), section="ShutterIntermediatePositions");
+
             self.config.ShuttersByName.pop(self.config.Shutters[id]['name'], None)
             self.config.Shutters.pop(id, None)
             return {'status': 'OK'}
