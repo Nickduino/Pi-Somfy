@@ -110,14 +110,15 @@ class MyConfig (MyLog):
 
     #---------------------MyConfig::setLocation---------------------------------
     def setLocation(self, lat, lng):
-        self.WriteValue("Latitude", lat, section="General");
-        self.WriteValue("Longitude", lng, section="General");
+        self.WriteValue("Latitude", str(lat), section="General");
+        self.WriteValue("Longitude", str(lng), section="General");
         self.Latitude = lat
         self.Longitude = lng
 
     #---------------------MyConfig::setCode---------------------------------
     def setCode(self, shutterId, code):
-        self.WriteValue(shutterId, str(code).lower(), section="ShutterRollingCodes");
+        shutterIdS = str(shutterId).upper()
+        self.WriteValue(shutterIdS, str(code), section="ShutterRollingCodes");
         self.Shutters[shutterId]['code'] = code
         
 
