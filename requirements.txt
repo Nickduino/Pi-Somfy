@@ -1,6 +1,6 @@
 ephem
 configparser
 Flask
-paho-mqtt
+paho-mqtt < 2.0.0
 pigpio
 requests
