@@ -365,6 +365,7 @@ table.table td .save {
 	font-size: 16px;
 	font-weight: bold;
 	color: #888888;
+    overflow-wrap: break-word;
 }
 
 .shutterRemote a {
