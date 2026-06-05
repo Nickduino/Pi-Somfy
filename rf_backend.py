@@ -18,7 +18,6 @@ def create_transmitter(
     is_pi5=False,
     pigpio_module=None,
     lgpio_module=None,
-    cc1101_module=None,
     lgpio_chip=4,
 ):
     backend_name = get_backend_name(config)
@@ -36,6 +35,5 @@ def create_transmitter(
         return CC1101Transmitter(
             CC1101Config.from_app_config(config),
             raw_433_transmitter,
-            cc1101_module=cc1101_module,
         )
     raise ValueError("Unsupported RFBackend: " + str(backend_name))

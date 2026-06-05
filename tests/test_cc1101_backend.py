@@ -1,7 +1,13 @@
 import contextlib
+import inspect
+import sys
 import types
 import unittest
 
+fake_cc1101 = types.ModuleType("cc1101")
+sys.modules["cc1101"] = fake_cc1101
+
+import cc1101_backend
 from cc1101_backend import CC1101Config, CC1101Transmitter
 
 
@@ -42,6 +48,18 @@ class FakeRadio:
 class CC1101BackendTest(unittest.TestCase):
     def setUp(self):
         FakeRadio.instances = []
+        fake_cc1101.CC1101 = FakeRadio
+        if hasattr(cc1101_backend, "cc1101"):
+            cc1101_backend.cc1101.CC1101 = FakeRadio
+
+    def test_imports_cc1101_at_module_load_time(self):
+        self.assertIs(fake_cc1101, cc1101_backend.cc1101)
+
+    def test_transmitter_uses_imported_cc1101_module(self):
+        self.assertNotIn(
+            "cc1101_module",
+            inspect.signature(CC1101Transmitter).parameters,
+        )
 
     def test_config_is_derived_from_app_config(self):
         app_config = types.SimpleNamespace(
@@ -85,7 +103,6 @@ class CC1101BackendTest(unittest.TestCase):
         self.assertEqual(0xC6, config.output_power)
 
     def test_transmitter_configures_radio_and_calls_waveform_callback(self):
-        fake_cc1101 = types.SimpleNamespace(CC1101=FakeRadio)
         config = CC1101Config(
             frequency_mhz=433.42,
             spi_bus=0,
@@ -96,7 +113,7 @@ class CC1101BackendTest(unittest.TestCase):
         frame = bytearray([0] * 7)
         calls = []
 
-        transmitter = CC1101Transmitter(config, waveform_transmitter, cc1101_module=fake_cc1101)
+        transmitter = CC1101Transmitter(config, waveform_transmitter)
         transmitter.transmit(frame, 3)
 
         self.assertEqual([("waveform", frame, 3)], calls)
@@ -119,13 +136,12 @@ class CC1101BackendTest(unittest.TestCase):
         )
 
     def test_transmitter_reuses_radio_object_between_transmits(self):
-        fake_cc1101 = types.SimpleNamespace(CC1101=FakeRadio)
         config = CC1101Config()
         waveform_transmitter = types.SimpleNamespace(transmit=lambda frame, repetition: calls.append(("waveform", repetition)))
         frame = bytearray([0] * 7)
         calls = []
 
-        transmitter = CC1101Transmitter(config, waveform_transmitter, cc1101_module=fake_cc1101)
+        transmitter = CC1101Transmitter(config, waveform_transmitter)
         transmitter.transmit(frame, 1)
         transmitter.transmit(frame, 2)
 

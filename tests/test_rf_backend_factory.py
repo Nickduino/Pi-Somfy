@@ -1,7 +1,13 @@
+import inspect
+import sys
 import types
 import unittest
 
+fake_cc1101 = types.ModuleType("cc1101")
+sys.modules["cc1101"] = fake_cc1101
+
 from cc1101_backend import CC1101Transmitter
+import cc1101_backend
 from raw_433_backend import Raw433Transmitter
 from rf_backend import create_transmitter
 from rf_backend import get_backend_name
@@ -17,6 +23,16 @@ class FakePigpio:
 
 
 class BackendFactoryTest(unittest.TestCase):
+    def setUp(self):
+        fake_cc1101.CC1101 = FakeRadio
+        cc1101_backend.cc1101.CC1101 = FakeRadio
+
+    def test_factory_uses_imported_cc1101_module(self):
+        self.assertNotIn(
+            "cc1101_module",
+            inspect.signature(create_transmitter).parameters,
+        )
+
     def test_creates_raw_433_transmitter_by_default(self):
         config = types.SimpleNamespace(RFBackend="raw_433", TXGPIO=4)
 
@@ -54,7 +70,6 @@ class BackendFactoryTest(unittest.TestCase):
             config,
             is_pi5=False,
             pigpio_module=FakePigpio(),
-            cc1101_module=types.SimpleNamespace(CC1101=FakeRadio),
         )
 
         self.assertIsInstance(transmitter, CC1101Transmitter)

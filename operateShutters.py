@@ -127,7 +127,7 @@ class Shutter(MyLog):
             self.lastCommandDirection = commandDirection
             self.lastCommandTime = time.monotonic()
 
-    def __init__(self, log = None, config = None, rf_transmitter = None, cc1101_module = None):
+    def __init__(self, log = None, config = None, rf_transmitter = None):
         super(Shutter, self).__init__()
         self.lock = threading.Lock()
         if log is not None:
@@ -148,7 +148,6 @@ class Shutter(MyLog):
                  is_pi5=IS_PI5,
                  pigpio_module=globals().get("pigpio"),
                  lgpio_module=globals().get("lgpio"),
-                 cc1101_module=cc1101_module,
                  lgpio_chip=LGPIO_CHIP,
               )
            except (RuntimeError, ValueError) as e:

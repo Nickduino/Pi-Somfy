@@ -1,4 +1,5 @@
 import contextlib
+import inspect
 import importlib
 import json
 import sys
@@ -20,6 +21,9 @@ def _install_import_stubs():
     lgpio.TX_WAVE = 1
     sys.modules.setdefault("lgpio", lgpio)
 
+    cc1101 = types.ModuleType("cc1101")
+    sys.modules.setdefault("cc1101", cc1101)
+
     flask = types.ModuleType("flask")
     flask.Flask = object
     flask.render_template = lambda *args, **kwargs: ""
@@ -31,6 +35,7 @@ def _install_import_stubs():
 
 
 _install_import_stubs()
+cc1101_backend = importlib.import_module("cc1101_backend")
 operateShutters = importlib.import_module("operateShutters")
 
 
@@ -86,6 +91,14 @@ class FakeRadio:
 class BackendDispatchTest(unittest.TestCase):
     def setUp(self):
         FakeRadio.instances = []
+        sys.modules["cc1101"].CC1101 = FakeRadio
+        cc1101_backend.cc1101.CC1101 = FakeRadio
+
+    def test_shutter_uses_imported_cc1101_module(self):
+        self.assertNotIn(
+            "cc1101_module",
+            inspect.signature(operateShutters.Shutter).parameters,
+        )
 
     def test_raw_433_backend_uses_existing_waveform_path(self):
         config = FakeConfig()
@@ -105,8 +118,7 @@ class BackendDispatchTest(unittest.TestCase):
         config.CC1101SPIBus = 0
         config.CC1101SPIDevice = 0
         config.CC1101OutputPower = 0xC6
-        fake_cc1101 = types.SimpleNamespace(CC1101=FakeRadio)
-        shutter = operateShutters.Shutter(config=config, cc1101_module=fake_cc1101)
+        shutter = operateShutters.Shutter(config=config)
         shutter.rf_transmitter.waveform_transmitter.transmit = mock.Mock()
 
         shutter.sendCommand("279620", shutter.buttonDown, 3)
@@ -126,10 +138,7 @@ class BackendDispatchTest(unittest.TestCase):
     def test_cc1101_backend_reuses_transmitter_between_commands(self):
         config = FakeConfig()
         config.RFBackend = "cc1101"
-        shutter = operateShutters.Shutter(
-            config=config,
-            cc1101_module=types.SimpleNamespace(CC1101=FakeRadio),
-        )
+        shutter = operateShutters.Shutter(config=config)
 
         shutter.rf_transmitter.waveform_transmitter.transmit = mock.Mock()
         shutter.sendCommand("279620", shutter.buttonUp, 1)

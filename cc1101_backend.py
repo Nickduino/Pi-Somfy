@@ -1,5 +1,8 @@
 #!/usr/bin/python3
 
+import cc1101
+
+
 class CC1101Config:
     DEFAULT_FREQUENCY_MHZ = 433.42
     DEFAULT_SPI_BUS = 0
@@ -66,26 +69,14 @@ class CC1101Config:
 
 
 class CC1101Transmitter:
-    def __init__(self, config, waveform_transmitter, cc1101_module=None):
+    def __init__(self, config, waveform_transmitter):
         self.config = config
         self.waveform_transmitter = waveform_transmitter
-        cc1101_module = self._load_cc1101_module(cc1101_module)
-        self.radio = cc1101_module.CC1101(
+        self.radio = cc1101.CC1101(
             spi_bus=self.config.spi_bus,
             spi_chip_select=self.config.spi_device,
             lock_spi_device=True,
         )
-
-    def _load_cc1101_module(self, cc1101_module):
-        if cc1101_module is not None:
-            return cc1101_module
-        try:
-            import cc1101
-            return cc1101
-        except ImportError as e:
-            raise RuntimeError(
-                "RFBackend=cc1101 requires the cc1101 Python package: " + str(e)
-            )
 
     def transmit(self, frame, repetition):
         with self.radio as radio:
