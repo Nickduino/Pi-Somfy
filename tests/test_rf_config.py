@@ -42,10 +42,10 @@ class RFConfigTest(unittest.TestCase):
         )
 
         self.assertEqual("gpio", config.RFBackend)
-        self.assertEqual(433.42, config.CC1101Frequency)
-        self.assertEqual(0, config.CC1101SPIBus)
-        self.assertEqual(0, config.CC1101SPIDevice)
-        self.assertEqual(0xC6, config.CC1101OutputPower)
+        self.assertFalse(hasattr(config, "CC1101Frequency"))
+        self.assertFalse(hasattr(config, "CC1101SPIBus"))
+        self.assertFalse(hasattr(config, "CC1101SPIDevice"))
+        self.assertFalse(hasattr(config, "CC1101OutputPower"))
 
     def test_parses_cc1101_backend_options(self):
         config = self._load_config(
@@ -75,10 +75,10 @@ class RFConfigTest(unittest.TestCase):
         )
 
         self.assertEqual("cc1101", config.RFBackend)
-        self.assertEqual(433.42, config.CC1101Frequency)
-        self.assertEqual(0, config.CC1101SPIBus)
-        self.assertEqual(0, config.CC1101SPIDevice)
-        self.assertEqual(0xC6, config.CC1101OutputPower)
+        self.assertFalse(hasattr(config, "CC1101Frequency"))
+        self.assertFalse(hasattr(config, "CC1101SPIBus"))
+        self.assertFalse(hasattr(config, "CC1101SPIDevice"))
+        self.assertFalse(hasattr(config, "CC1101OutputPower"))
 
 
 if __name__ == "__main__":

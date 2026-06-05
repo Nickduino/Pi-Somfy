@@ -128,7 +128,7 @@ class Shutter(MyLog):
             self.lastCommandDirection = commandDirection
             self.lastCommandTime = time.monotonic()
 
-    def __init__(self, log = None, config = None):
+    def __init__(self, log = None, config = None, cc1101_module = None):
         super(Shutter, self).__init__()
         self.lock = threading.Lock()
         if log is not None:
@@ -141,6 +141,12 @@ class Shutter(MyLog):
         else:
            self.TXGPIO=4 # 433.42 MHz emitter on GPIO 4
         self.RFBackend = getattr(self.config, "RFBackend", "gpio").strip().lower()
+        self.cc1101_transmitter = None
+        if self.RFBackend == "cc1101":
+           try:
+              self.cc1101_transmitter = CC1101Transmitter(CC1101Config.from_app_config(self.config), cc1101_module=cc1101_module)
+           except RuntimeError as e:
+              self.FatalError(str(e))
         self.frame = bytearray(7)
         self.callback = []
         self.shutterStateList = {}
@@ -376,11 +382,12 @@ class Shutter(MyLog):
           self._sendWave_pigpio(repetition)
 
     def _sendWave_cc1101(self, repetition, cc1101_module=None):
-       try:
-          transmitter = CC1101Transmitter(CC1101Config.from_app_config(self.config), cc1101_module=cc1101_module)
-          transmitter.transmit(self._sendWave_gpio, repetition)
-       except RuntimeError as e:
-          self.FatalError(str(e))
+       if self.cc1101_transmitter is None:
+          try:
+             self.cc1101_transmitter = CC1101Transmitter(CC1101Config.from_app_config(self.config), cc1101_module=cc1101_module)
+          except RuntimeError as e:
+             self.FatalError(str(e))
+       self.cc1101_transmitter.transmit(self._sendWave_gpio, repetition)
 
     def _sendWave_pigpio(self, repetition):
        #This is where all the awesomeness is happening. You're telling the daemon what you wanna send

@@ -22,6 +22,33 @@ class CC1101Config:
 
     @classmethod
     def from_app_config(cls, config):
+        if hasattr(config, "ReadValue"):
+            return cls(
+                frequency_mhz=config.ReadValue(
+                    "CC1101Frequency",
+                    return_type=float,
+                    default=cls.DEFAULT_FREQUENCY_MHZ,
+                    section="General",
+                ),
+                spi_bus=config.ReadValue(
+                    "CC1101SPIBus",
+                    return_type=int,
+                    default=cls.DEFAULT_SPI_BUS,
+                    section="General",
+                ),
+                spi_device=config.ReadValue(
+                    "CC1101SPIDevice",
+                    return_type=int,
+                    default=cls.DEFAULT_SPI_DEVICE,
+                    section="General",
+                ),
+                output_power=config.ReadValue(
+                    "CC1101OutputPower",
+                    return_type=int,
+                    default=cls.DEFAULT_OUTPUT_POWER,
+                    section="General",
+                ),
+            )
         return cls(
             frequency_mhz=getattr(config, "CC1101Frequency", cls.DEFAULT_FREQUENCY_MHZ),
             spi_bus=getattr(config, "CC1101SPIBus", cls.DEFAULT_SPI_BUS),
@@ -41,11 +68,16 @@ class CC1101Config:
 class CC1101Transmitter:
     def __init__(self, config, cc1101_module=None):
         self.config = config
-        self.cc1101_module = cc1101_module
+        cc1101_module = self._load_cc1101_module(cc1101_module)
+        self.radio = cc1101_module.CC1101(
+            spi_bus=self.config.spi_bus,
+            spi_chip_select=self.config.spi_device,
+            lock_spi_device=True,
+        )
 
-    def _load_cc1101_module(self):
-        if self.cc1101_module is not None:
-            return self.cc1101_module
+    def _load_cc1101_module(self, cc1101_module):
+        if cc1101_module is not None:
+            return cc1101_module
         try:
             import cc1101
             return cc1101
@@ -55,12 +87,7 @@ class CC1101Transmitter:
             )
 
     def transmit(self, waveform_sender, repetition):
-        cc1101_module = self._load_cc1101_module()
-        with cc1101_module.CC1101(
-            spi_bus=self.config.spi_bus,
-            spi_chip_select=self.config.spi_device,
-            lock_spi_device=True,
-        ) as radio:
+        with self.radio as radio:
             radio.set_base_frequency_hertz(self.config.frequency_hz)
             radio.set_symbol_rate_baud(self.config.symbol_rate_baud)
             radio.set_output_power(self.config.output_power_table)

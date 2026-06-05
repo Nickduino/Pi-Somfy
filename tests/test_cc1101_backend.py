@@ -59,6 +59,31 @@ class CC1101BackendTest(unittest.TestCase):
         self.assertEqual(0xC6, config.output_power)
         self.assertEqual(1562.5, config.symbol_rate_baud)
 
+    def test_config_reads_values_from_myconfig_interface(self):
+        class AppConfig:
+            def ReadValue(self, entry, return_type=str, default=None, section=None):
+                values = {
+                    "CC1101Frequency": "433.42",
+                    "CC1101SPIBus": "0",
+                    "CC1101SPIDevice": "1",
+                    "CC1101OutputPower": "0xC6",
+                }
+                value = values.get(entry)
+                if value is None:
+                    return default
+                if return_type == int:
+                    return int(value, 0)
+                if return_type == float:
+                    return float(value)
+                return value
+
+        config = CC1101Config.from_app_config(AppConfig())
+
+        self.assertEqual(433.42e6, config.frequency_hz)
+        self.assertEqual(0, config.spi_bus)
+        self.assertEqual(1, config.spi_device)
+        self.assertEqual(0xC6, config.output_power)
+
     def test_transmitter_configures_radio_and_calls_waveform_callback(self):
         fake_cc1101 = types.SimpleNamespace(CC1101=FakeRadio)
         config = CC1101Config(
@@ -90,6 +115,18 @@ class CC1101BackendTest(unittest.TestCase):
             ],
             radio.calls,
         )
+
+    def test_transmitter_reuses_radio_object_between_transmits(self):
+        fake_cc1101 = types.SimpleNamespace(CC1101=FakeRadio)
+        config = CC1101Config()
+        calls = []
+
+        transmitter = CC1101Transmitter(config, cc1101_module=fake_cc1101)
+        transmitter.transmit(lambda repetition: calls.append(("waveform", repetition)), 1)
+        transmitter.transmit(lambda repetition: calls.append(("waveform", repetition)), 2)
+
+        self.assertEqual([("waveform", 1), ("waveform", 2)], calls)
+        self.assertEqual(1, len(FakeRadio.instances))
 
 
 if __name__ == "__main__":

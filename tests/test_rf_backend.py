@@ -105,11 +105,11 @@ class BackendDispatchTest(unittest.TestCase):
         config.CC1101SPIBus = 0
         config.CC1101SPIDevice = 0
         config.CC1101OutputPower = 0xC6
-        shutter = operateShutters.Shutter(config=config)
         fake_cc1101 = types.SimpleNamespace(CC1101=FakeRadio)
+        shutter = operateShutters.Shutter(config=config, cc1101_module=fake_cc1101)
 
         with mock.patch.object(shutter, "_sendWave_gpio") as send_wave:
-            shutter.sendCommand("279620", shutter.buttonDown, 3, cc1101_module=fake_cc1101)
+            shutter.sendCommand("279620", shutter.buttonDown, 3)
 
         self.assertEqual(1, len(FakeRadio.instances))
         radio = FakeRadio.instances[0]
@@ -122,6 +122,22 @@ class BackendDispatchTest(unittest.TestCase):
         self.assertLess(radio.calls.index(("async_enter",)), radio.calls.index(("async_exit",)))
         send_wave.assert_called_once_with(3)
         self.assertEqual(2, config.Shutters["279620"]["code"])
+
+    def test_cc1101_backend_reuses_transmitter_between_commands(self):
+        config = FakeConfig()
+        config.RFBackend = "cc1101"
+        shutter = operateShutters.Shutter(
+            config=config,
+            cc1101_module=types.SimpleNamespace(CC1101=FakeRadio),
+        )
+
+        with mock.patch.object(shutter, "_sendWave_gpio") as send_wave:
+            shutter.sendCommand("279620", shutter.buttonUp, 1)
+            shutter.sendCommand("279620", shutter.buttonStop, 1)
+
+        self.assertEqual(1, len(FakeRadio.instances))
+        self.assertEqual([mock.call(1), mock.call(1)], send_wave.call_args_list)
+        self.assertEqual(3, config.Shutters["279620"]["code"])
 
 
 if __name__ == "__main__":
