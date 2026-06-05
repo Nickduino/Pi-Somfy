@@ -68,9 +68,6 @@ TXGPIO = 4
 RFBackend = raw_433
 ```
 
-The older `RFBackend = gpio` value is still accepted as an alias for `raw_433`.
-
-
 ![Full Picture](documentation/Full%20Assembly.jpg)<br/>
 ![Pi Connection](documentation/Connection.jpg)<br/>
 ![RF Transmitter Connection](documentation/Sender.jpg)<br/>
