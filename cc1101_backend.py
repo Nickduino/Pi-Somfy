@@ -66,8 +66,9 @@ class CC1101Config:
 
 
 class CC1101Transmitter:
-    def __init__(self, config, cc1101_module=None):
+    def __init__(self, config, waveform_transmitter, cc1101_module=None):
         self.config = config
+        self.waveform_transmitter = waveform_transmitter
         cc1101_module = self._load_cc1101_module(cc1101_module)
         self.radio = cc1101_module.CC1101(
             spi_bus=self.config.spi_bus,
@@ -86,10 +87,10 @@ class CC1101Transmitter:
                 "RFBackend=cc1101 requires the cc1101 Python package: " + str(e)
             )
 
-    def transmit(self, waveform_sender, repetition):
+    def transmit(self, frame, repetition):
         with self.radio as radio:
             radio.set_base_frequency_hertz(self.config.frequency_hz)
             radio.set_symbol_rate_baud(self.config.symbol_rate_baud)
             radio.set_output_power(self.config.output_power_table)
             with radio.asynchronous_transmission():
-                waveform_sender(repetition)
+                self.waveform_transmitter.transmit(frame, repetition)

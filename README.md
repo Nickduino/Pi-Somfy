@@ -50,7 +50,7 @@ The E07-M1101D-SMA must be powered from 3.3V. Do not connect VCC or any logic pi
 | 7 MISO/GDO1 | 21 | SPI0 MISO / GPIO9 |
 | 8 GDO2 | 22 | GPIO25, optional |
 
-Enable SPI on the Pi, then set the RF backend in `operateShutters.conf`:
+Enable SPI on the Pi, then set the top-level RF backend in `operateShutters.conf`:
 
 ```ini
 TXGPIO = 4

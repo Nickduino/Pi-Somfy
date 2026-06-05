@@ -92,12 +92,14 @@ class CC1101BackendTest(unittest.TestCase):
             spi_device=0,
             output_power=0xC6,
         )
+        waveform_transmitter = types.SimpleNamespace(transmit=lambda frame, repetition: calls.append(("waveform", frame, repetition)))
+        frame = bytearray([0] * 7)
         calls = []
 
-        transmitter = CC1101Transmitter(config, cc1101_module=fake_cc1101)
-        transmitter.transmit(lambda repetition: calls.append(("waveform", repetition)), 3)
+        transmitter = CC1101Transmitter(config, waveform_transmitter, cc1101_module=fake_cc1101)
+        transmitter.transmit(frame, 3)
 
-        self.assertEqual([("waveform", 3)], calls)
+        self.assertEqual([("waveform", frame, 3)], calls)
         self.assertEqual(1, len(FakeRadio.instances))
         radio = FakeRadio.instances[0]
         self.assertEqual(0, radio.spi_bus)
@@ -119,11 +121,13 @@ class CC1101BackendTest(unittest.TestCase):
     def test_transmitter_reuses_radio_object_between_transmits(self):
         fake_cc1101 = types.SimpleNamespace(CC1101=FakeRadio)
         config = CC1101Config()
+        waveform_transmitter = types.SimpleNamespace(transmit=lambda frame, repetition: calls.append(("waveform", repetition)))
+        frame = bytearray([0] * 7)
         calls = []
 
-        transmitter = CC1101Transmitter(config, cc1101_module=fake_cc1101)
-        transmitter.transmit(lambda repetition: calls.append(("waveform", repetition)), 1)
-        transmitter.transmit(lambda repetition: calls.append(("waveform", repetition)), 2)
+        transmitter = CC1101Transmitter(config, waveform_transmitter, cc1101_module=fake_cc1101)
+        transmitter.transmit(frame, 1)
+        transmitter.transmit(frame, 2)
 
         self.assertEqual([("waveform", 1), ("waveform", 2)], calls)
         self.assertEqual(1, len(FakeRadio.instances))

@@ -90,12 +90,12 @@ class BackendDispatchTest(unittest.TestCase):
     def test_gpio_backend_uses_existing_waveform_path(self):
         config = FakeConfig()
         config.RFBackend = "gpio"
-        shutter = operateShutters.Shutter(config=config)
+        transmitter = mock.Mock()
+        shutter = operateShutters.Shutter(config=config, rf_transmitter=transmitter)
 
-        with mock.patch.object(shutter, "_sendWave_gpio") as send_wave:
-            shutter.sendCommand("279620", shutter.buttonUp, 2)
+        shutter.sendCommand("279620", shutter.buttonUp, 2)
 
-        send_wave.assert_called_once_with(2)
+        transmitter.transmit.assert_called_once_with(shutter.frame, 2)
         self.assertEqual(2, config.Shutters["279620"]["code"])
 
     def test_cc1101_backend_configures_radio_and_reuses_waveform(self):
@@ -107,9 +107,9 @@ class BackendDispatchTest(unittest.TestCase):
         config.CC1101OutputPower = 0xC6
         fake_cc1101 = types.SimpleNamespace(CC1101=FakeRadio)
         shutter = operateShutters.Shutter(config=config, cc1101_module=fake_cc1101)
+        shutter.rf_transmitter.waveform_transmitter.transmit = mock.Mock()
 
-        with mock.patch.object(shutter, "_sendWave_gpio") as send_wave:
-            shutter.sendCommand("279620", shutter.buttonDown, 3)
+        shutter.sendCommand("279620", shutter.buttonDown, 3)
 
         self.assertEqual(1, len(FakeRadio.instances))
         radio = FakeRadio.instances[0]
@@ -120,7 +120,7 @@ class BackendDispatchTest(unittest.TestCase):
         self.assertIn(("symbol_rate", 1562.5), radio.calls)
         self.assertIn(("output_power", (0, 0xC6)), radio.calls)
         self.assertLess(radio.calls.index(("async_enter",)), radio.calls.index(("async_exit",)))
-        send_wave.assert_called_once_with(3)
+        shutter.rf_transmitter.waveform_transmitter.transmit.assert_called_once_with(shutter.frame, 3)
         self.assertEqual(2, config.Shutters["279620"]["code"])
 
     def test_cc1101_backend_reuses_transmitter_between_commands(self):
@@ -131,12 +131,15 @@ class BackendDispatchTest(unittest.TestCase):
             cc1101_module=types.SimpleNamespace(CC1101=FakeRadio),
         )
 
-        with mock.patch.object(shutter, "_sendWave_gpio") as send_wave:
-            shutter.sendCommand("279620", shutter.buttonUp, 1)
-            shutter.sendCommand("279620", shutter.buttonStop, 1)
+        shutter.rf_transmitter.waveform_transmitter.transmit = mock.Mock()
+        shutter.sendCommand("279620", shutter.buttonUp, 1)
+        shutter.sendCommand("279620", shutter.buttonStop, 1)
 
         self.assertEqual(1, len(FakeRadio.instances))
-        self.assertEqual([mock.call(1), mock.call(1)], send_wave.call_args_list)
+        self.assertEqual(
+            [mock.call(shutter.frame, 1), mock.call(shutter.frame, 1)],
+            shutter.rf_transmitter.waveform_transmitter.transmit.call_args_list,
+        )
         self.assertEqual(3, config.Shutters["279620"]["code"])
 
 

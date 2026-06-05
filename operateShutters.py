@@ -101,8 +101,7 @@ try:
     from webserver import FlaskAppWrapper
     from alexa import Alexa
     from shutil import copyfile
-    from cc1101_backend import CC1101Config
-    from cc1101_backend import CC1101Transmitter
+    from rf_backend import create_transmitter
 except Exception as e1:
     print("\n\nThis program requires the modules located from the same github repository that are not present.\n")
     print("Error: " + str(e1))
@@ -128,7 +127,7 @@ class Shutter(MyLog):
             self.lastCommandDirection = commandDirection
             self.lastCommandTime = time.monotonic()
 
-    def __init__(self, log = None, config = None, cc1101_module = None):
+    def __init__(self, log = None, config = None, rf_transmitter = None, cc1101_module = None):
         super(Shutter, self).__init__()
         self.lock = threading.Lock()
         if log is not None:
@@ -141,11 +140,18 @@ class Shutter(MyLog):
         else:
            self.TXGPIO=4 # 433.42 MHz emitter on GPIO 4
         self.RFBackend = getattr(self.config, "RFBackend", "gpio").strip().lower()
-        self.cc1101_transmitter = None
-        if self.RFBackend == "cc1101":
+        self.rf_transmitter = rf_transmitter
+        if self.rf_transmitter is None:
            try:
-              self.cc1101_transmitter = CC1101Transmitter(CC1101Config.from_app_config(self.config), cc1101_module=cc1101_module)
-           except RuntimeError as e:
+              self.rf_transmitter = create_transmitter(
+                 self.config,
+                 is_pi5=IS_PI5,
+                 pigpio_module=globals().get("pigpio"),
+                 lgpio_module=globals().get("lgpio"),
+                 cc1101_module=cc1101_module,
+                 lgpio_chip=LGPIO_CHIP,
+              )
+           except (RuntimeError, ValueError) as e:
               self.FatalError(str(e))
         self.frame = bytearray(7)
         self.callback = []
@@ -306,7 +312,7 @@ class Shutter(MyLog):
     def registerCallBack(self, callbackFunction):
         self.callback.append(callbackFunction)
 
-    def sendCommand(self, shutterId, button, repetition, cc1101_module=None): #Sending a frame
+    def sendCommand(self, shutterId, button, repetition): #Sending a frame
     # Sending more than two repetitions after the original frame means a button kept pressed and moves the blind in steps 
     # to adjust the tilt. Sending the original frame and three repetitions is the smallest adjustment, sending the original
     # frame and more repetitions moves the blinds up/down for a longer time.
@@ -362,135 +368,10 @@ class Shutter(MyLog):
               outstring = outstring + "0x%0.2X" % octet + ' '
            self.LogInfo (outstring)
 
-           self._sendWave(repetition, cc1101_module=cc1101_module)
+           self.rf_transmitter.transmit(self.frame, repetition)
        finally:
            self.lock.release()
            self.LogDebug("sendCommand: Lock released")
-
-    def _sendWave(self, repetition, cc1101_module=None):
-       if self.RFBackend == "gpio":
-          self._sendWave_gpio(repetition)
-       elif self.RFBackend == "cc1101":
-          self._sendWave_cc1101(repetition, cc1101_module=cc1101_module)
-       else:
-          self.FatalError("Unsupported RFBackend: " + str(self.RFBackend))
-
-    def _sendWave_gpio(self, repetition):
-       if IS_PI5:
-          self._sendWave_lgpio(repetition)
-       else:
-          self._sendWave_pigpio(repetition)
-
-    def _sendWave_cc1101(self, repetition, cc1101_module=None):
-       if self.cc1101_transmitter is None:
-          try:
-             self.cc1101_transmitter = CC1101Transmitter(CC1101Config.from_app_config(self.config), cc1101_module=cc1101_module)
-          except RuntimeError as e:
-             self.FatalError(str(e))
-       self.cc1101_transmitter.transmit(self._sendWave_gpio, repetition)
-
-    def _sendWave_pigpio(self, repetition):
-       #This is where all the awesomeness is happening. You're telling the daemon what you wanna send
-       pi = pigpio.pi() # connect to Pi
-
-       if not pi.connected:
-          exit()
-
-       pi.wave_add_new()
-       pi.set_mode(self.TXGPIO, pigpio.OUTPUT)
-
-       wf=[]
-       wf.append(pigpio.pulse(1<<self.TXGPIO, 0, 9415)) # wake up pulse
-       wf.append(pigpio.pulse(0, 1<<self.TXGPIO, 89565)) # silence
-       for i in range(2): # hardware synchronization
-          wf.append(pigpio.pulse(1<<self.TXGPIO, 0, 2560))
-          wf.append(pigpio.pulse(0, 1<<self.TXGPIO, 2560))
-       wf.append(pigpio.pulse(1<<self.TXGPIO, 0, 4550)) # software synchronization
-       wf.append(pigpio.pulse(0, 1<<self.TXGPIO,  640))
-
-       for i in range (0, 56): # manchester encoding of payload data
-          if ((self.frame[int(i/8)] >> (7 - (i%8))) & 1):
-             wf.append(pigpio.pulse(0, 1<<self.TXGPIO, 640))
-             wf.append(pigpio.pulse(1<<self.TXGPIO, 0, 640))
-          else:
-             wf.append(pigpio.pulse(1<<self.TXGPIO, 0, 640))
-             wf.append(pigpio.pulse(0, 1<<self.TXGPIO, 640))
-
-       wf.append(pigpio.pulse(0, 1<<self.TXGPIO, 30415)) # interframe gap
-
-       for j in range(1,repetition): # repeating frames
-                for i in range(7): # hardware synchronization
-                      wf.append(pigpio.pulse(1<<self.TXGPIO, 0, 2560))
-                      wf.append(pigpio.pulse(0, 1<<self.TXGPIO, 2560))
-                wf.append(pigpio.pulse(1<<self.TXGPIO, 0, 4550)) # software synchronization
-                wf.append(pigpio.pulse(0, 1<<self.TXGPIO,  640))
-
-                for i in range (0, 56): # manchester encoding of payload data
-                      if ((self.frame[int(i/8)] >> (7 - (i%8))) & 1):
-                         wf.append(pigpio.pulse(0, 1<<self.TXGPIO, 640))
-                         wf.append(pigpio.pulse(1<<self.TXGPIO, 0, 640))
-                      else:
-                         wf.append(pigpio.pulse(1<<self.TXGPIO, 0, 640))
-                         wf.append(pigpio.pulse(0, 1<<self.TXGPIO, 640))
-
-                wf.append(pigpio.pulse(0, 1<<self.TXGPIO, 30415)) # interframe gap
-
-       pi.wave_add_generic(wf)
-       wid = pi.wave_create()
-       pi.wave_send_once(wid)
-       while pi.wave_tx_busy():
-          pass
-       pi.wave_delete(wid)
-
-       pi.stop()
-
-    def _sendWave_lgpio(self, repetition):
-       """Transmit the Somfy RTS frame using lgpio (Pi 5)."""
-       h = lgpio.gpiochip_open(LGPIO_CHIP)
-       lgpio.gpio_claim_output(h, self.TXGPIO)
-
-       pulses = []
-       pulses.append(lgpio.pulse(1, 1, 9415))   # wake up pulse
-       pulses.append(lgpio.pulse(0, 1, 89565))  # silence
-       for i in range(2): # hardware synchronization
-          pulses.append(lgpio.pulse(1, 1, 2560))
-          pulses.append(lgpio.pulse(0, 1, 2560))
-       pulses.append(lgpio.pulse(1, 1, 4550))   # software synchronization
-       pulses.append(lgpio.pulse(0, 1,  640))
-
-       for i in range(0, 56): # manchester encoding of payload data
-          if ((self.frame[int(i/8)] >> (7 - (i%8))) & 1):
-             pulses.append(lgpio.pulse(0, 1, 640))
-             pulses.append(lgpio.pulse(1, 1, 640))
-          else:
-             pulses.append(lgpio.pulse(1, 1, 640))
-             pulses.append(lgpio.pulse(0, 1, 640))
-
-       pulses.append(lgpio.pulse(0, 1, 30415))  # interframe gap
-
-       for j in range(1, repetition): # repeating frames
-                for i in range(7): # hardware synchronization
-                      pulses.append(lgpio.pulse(1, 1, 2560))
-                      pulses.append(lgpio.pulse(0, 1, 2560))
-                pulses.append(lgpio.pulse(1, 1, 4550)) # software synchronization
-                pulses.append(lgpio.pulse(0, 1,  640))
-
-                for i in range(0, 56): # manchester encoding of payload data
-                      if ((self.frame[int(i/8)] >> (7 - (i%8))) & 1):
-                         pulses.append(lgpio.pulse(0, 1, 640))
-                         pulses.append(lgpio.pulse(1, 1, 640))
-                      else:
-                         pulses.append(lgpio.pulse(1, 1, 640))
-                         pulses.append(lgpio.pulse(0, 1, 640))
-
-                pulses.append(lgpio.pulse(0, 1, 30415)) # interframe gap
-
-       lgpio.tx_wave(h, self.TXGPIO, pulses)
-       while lgpio.tx_busy(h, self.TXGPIO, lgpio.TX_WAVE):
-          time.sleep(0.001)
-
-       lgpio.gpio_free(h, self.TXGPIO)
-       lgpio.gpiochip_close(h)
 
 class operateShutters(MyLog):
 
