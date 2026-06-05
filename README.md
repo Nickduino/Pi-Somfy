@@ -10,7 +10,15 @@ This project has been developed and tested with a Raspberry Pi B+ and a Raspberr
 
 Wi-Fi connectivity and Ethernet cable should both work. Note that the hardware has to be reasonably close (i.e. in the same house or in the same aisle of your mansion: just like a physical remote) to the shutters you operate, as the signal strength will otherwise not be sufficient.
 
-As of now, you have to build your own hardware. Here are the steps to do so.
+Pi-Somfy supports two RF hardware options:
+
+1. A raw 433 MHz ASK/OOK transmitter module. This is the original low-cost hardware path.
+1. An E07-M1101D-SMA CC1101 module. This is controlled over SPI and transmits the same Somfy RTS waveform through the CC1101 radio.
+
+### Raw 433 MHz transmitter
+
+For the original raw 433 MHz transmitter, you have to build your own hardware. Here are the steps to do so.
+
 1. You need the RF Transmitter. If you wish to order it from eBay, this link may be helpful: <br/>[Order](https://www.ebay.com/sch/sis.html?_nkw=5x+433Mhz+RF+transmitter+and+receiver+kit+Module+Arduino+ARM+WL+MCU+Raspberry).<br/>Note that desoldering a 3 pin component isn't trivial, so ordering more than one may be a good idea in case of a screw up.
 1. You need an oscillator for a 433.42 MHz frequency. The above RF transmitter comes with a common 433.93 MHz one, which will not work with your Somfy shutter. If you wish to order it from eBay, this link may be helpful: <br/>[Order](https://www.ebay.com/sch/sis.html?_nkw=433.42M+R433+F433+SAW+Resonator+Crystals+TO-39)
 1. You will need cables to connect the transmitter to the Raspberry Pi. Any cable will do obviously, but I found these quite helpful. <br/>[Order](https://www.ebay.com/itm/40Pin-Multicolored-Dupont-Wire-Kits-Breadboard-Female-Jumper-Ribbon-Cable/113310899442)
@@ -33,7 +41,20 @@ Note that I used GPIO 4 but you can change the value of __TXGPIO__ to whatever y
 
 OK. now this all should look like this. Note that some of the pictures are a bit confusing with regards to which GPIO a cable connects to. It's easier to see on the above diagram. But if you struggle, maybe the [Wiring Diagram](documentation/Wiring%20Diagram.txt) helps.
 
-### E07-M1101D-SMA / CC1101 option
+Set the top-level RF backend in `operateShutters.conf`:
+
+```ini
+TXGPIO = 4
+RFBackend = raw_433
+```
+
+Raw 433 MHz transmitter connection photos:
+
+![Full Picture](documentation/Full%20Assembly.jpg)<br/>
+![Pi Connection](documentation/Connection.jpg)<br/>
+![RF Transmitter Connection](documentation/Sender.jpg)<br/>
+
+### E07-M1101D-SMA / CC1101 module
 
 Pi-Somfy can also drive an E07-M1101D-SMA CC1101 module. This module is controlled over SPI and uses the CC1101 asynchronous transmit mode, with the Somfy RTS waveform driven into GDO0.
 
@@ -61,16 +82,11 @@ CC1101SPIDevice = 0
 CC1101OutputPower = 0xC6
 ```
 
-For the original raw 433 MHz ASK/OOK transmitter module, use:
+CC1101 connection photos to add:
 
-```ini
-TXGPIO = 4
-RFBackend = raw_433
-```
-
-![Full Picture](documentation/Full%20Assembly.jpg)<br/>
-![Pi Connection](documentation/Connection.jpg)<br/>
-![RF Transmitter Connection](documentation/Sender.jpg)<br/>
+- `documentation/CC1101 Full Assembly.jpg`
+- `documentation/CC1101 Pi Connection.jpg`
+- `documentation/CC1101 Module Connection.jpg`
 
 ## 3 Software
 
