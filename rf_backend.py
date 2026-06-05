@@ -7,10 +7,7 @@ from raw_433_backend import Raw433Transmitter
 
 
 def get_backend_name(config):
-    backend_name = getattr(config, "RFBackend", "raw_433").strip().lower()
-    if backend_name == "gpio":
-        return "raw_433"
-    return backend_name
+    return getattr(config, "RFBackend", "raw_433").strip().lower()
 
 
 def create_transmitter(
@@ -36,4 +33,6 @@ def create_transmitter(
             CC1101Config.from_app_config(config),
             raw_433_transmitter,
         )
-    raise ValueError("Unsupported RFBackend: " + str(backend_name))
+    raise ValueError(
+        "Unsupported RFBackend: " + str(backend_name) + ". Use raw_433 or cc1101."
+    )

@@ -10,7 +10,6 @@ from cc1101_backend import CC1101Transmitter
 import cc1101_backend
 from raw_433_backend import Raw433Transmitter
 from rf_backend import create_transmitter
-from rf_backend import get_backend_name
 
 
 class FakeRadio:
@@ -44,17 +43,11 @@ class BackendFactoryTest(unittest.TestCase):
 
         self.assertIsInstance(transmitter, Raw433Transmitter)
 
-    def test_accepts_legacy_gpio_backend_alias(self):
+    def test_rejects_gpio_backend_alias(self):
         config = types.SimpleNamespace(RFBackend="gpio", TXGPIO=4)
 
-        transmitter = create_transmitter(
-            config,
-            is_pi5=False,
-            pigpio_module=FakePigpio(),
-        )
-
-        self.assertEqual("raw_433", get_backend_name(config))
-        self.assertIsInstance(transmitter, Raw433Transmitter)
+        with self.assertRaisesRegex(ValueError, "raw_433 or cc1101"):
+            create_transmitter(config, is_pi5=False, pigpio_module=FakePigpio())
 
     def test_creates_cc1101_transmitter_wrapping_raw_433_transmitter(self):
         config = types.SimpleNamespace(
