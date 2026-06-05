@@ -96,7 +96,7 @@ If you are not familiar with remote login commands for Linux/Unix, two useful co
 
 The Raspberry Pi organization has documentation on installing an operating system on your Raspberry Pi. It is located [here](https://www.raspberrypi.org/documentation/installation/installing-images/README.md).
 
-Once the Pi has its basic setup (an operating system and an internet connection) working, ssh into your Raspberry Pi and you should find that you are in the directory /home/pi. Note: if you prefer not to use a headless system, you can also open a terminal windows directly on the Pi.
+Once the Pi has its basic setup (an operating system and an internet connection) working, ssh into your Raspberry Pi. The examples below install into `~/Pi-Somfy`; if you use a different directory, run the commands from that checkout.
 
 The next step is to download the Pi-Somfy project files to your Raspberry Pi. The easiest way to do this is to use the "git" program. Most Raspberry Pi distributions include the git program (except Debian Lite).
 
@@ -108,51 +108,71 @@ sudo apt-get install git
 ```
 (If git isn't installed, it will install it; if it was previously, it will update it)
 
-Once git is installed on your system, make sure you are in the /home/pi directory, then type:
+Once git is installed on your system, clone the project:
 
 ```sh
+cd ~
 git clone https://github.com/Nickduino/Pi-Somfy.git
+cd Pi-Somfy
 ```
 
-The above command will make a directory in /home/pi named Pi-Somfy and put the project files in this directory.
+The above command will make a directory named `Pi-Somfy` and put the project files in this directory.
 
-Next, we need to install Python Libraries. Pi-Somfy requires Python 3. Ensure pip3 is installed:
+Next, install the Raspberry Pi OS packages used by Pi-Somfy. On current Raspberry Pi OS releases, the GPIO package is `python3-pigpio`; the bare `pigpio` package name may not be installable.
 
 ```sh
 sudo apt-get update
-sudo apt-get install python3-pip
+sudo apt-get install python3-venv python3-pip python3-pigpio python3-lgpio python3-spidev
 ```
 
-Next, we need to install the PIGPIO libraries, to do so, type:
+For the E07-M1101D-SMA / CC1101 backend, enable SPI:
 
 ```sh
-sudo apt-get install pigpio
+sudo raspi-config nonint do_spi 0
+ls -l /dev/spidev*
 ```
 
-For the E07-M1101D-SMA / CC1101 backend, also enable SPI and install the spidev package:
+If `/dev/spidev0.0` and `/dev/spidev0.1` do not appear, reboot and check again.
+
+Create a Python virtual environment that can see the Raspberry Pi OS GPIO/SPI packages, then install the Python requirements:
 
 ```sh
-sudo raspi-config
-sudo apt-get install python3-spidev
+python3 -m venv --system-site-packages .venv
+.venv/bin/python -m pip install --upgrade pip setuptools wheel
+.venv/bin/python -m pip install -r requirements.txt
 ```
 
-Next install the required Python Libraries:
+The `--system-site-packages` option is intentional: Raspberry Pi OS supplies `pigpio`, `lgpio`, and `spidev` as apt packages, while `requirements.txt` installs or verifies the Python packages used by the app, including `cc1101`.
+
+If this is a new install, create the config from the default and choose the RF backend:
 
 ```sh
-sudo pip3 install -r requirements.txt
+cp defaultConfig.conf operateShutters.conf
 ```
 
-Next, let's test if it all works. Start `operateShutters.py` by typing:
+For the raw 433 MHz transmitter, keep:
+
+```ini
+RFBackend = raw_433
+```
+
+For the E07-M1101D-SMA / CC1101 module, set:
+
+```ini
+RFBackend = cc1101
+```
+
+Next, test the Python environment by typing:
 
 ```sh
-sudo python3 /home/pi/Pi-Somfy/operateShutters.py
+.venv/bin/python operateShutters.py -h
 ```
 
 You should see the help text explaining the [Command Line Interface](documentation/p4.png)
 
 ## 4 Usage
 
-Note that the config file won't exist the first time you run the application. In that case, a new config file will be created based on the name you specified (e.g. /home/pi/Pi-Somfy/operateShutters.conf). Once it has been created, you can modify it to change your need (SSL or not, which port is used, etc.), it will not be erased with an update. If you messed up something, just delete it and relaunch operateShutters.py, a new vanilla copy will be generated.
+Note that the config file won't exist the first time you run the application unless you copied it from `defaultConfig.conf` during install. In that case, a new config file will be created based on the name you specified (e.g. `operateShutters.conf` in your checkout). Once it has been created, you can modify it to change your need (SSL or not, which port is used, etc.), it will not be erased with an update. If you messed up something, just delete it and relaunch operateShutters.py, a new vanilla copy will be generated.
 
 You have 6 ways to operate. The recommended operation mode is mode 5. But the other 5 modes are explained here for completeness:
 
@@ -185,46 +205,52 @@ You have 6 ways to operate. The recommended operation mode is mode 5. But the ot
 **Examples:**
 All three command the shutter named corridor. The first one will raise it. The second one will lower it. The third one will lower the shutter at sunset and raise it again 60 minutes after sunrise.
 ```sh
-sudo /home/pi/Pi-Somfy/operateShutters.py corridor -c /home/pi/Pi-Somfy/operateShutters.conf -u
-sudo /home/pi/Pi-Somfy/operateShutters.py corridor -c /home/pi/Pi-Somfy/operateShutters.conf -d
-sudo /home/pi/Pi-Somfy/operateShutters.py corridor -c /home/pi/Pi-Somfy/operateShutters.conf -dd 0 60
+.venv/bin/python operateShutters.py corridor -c operateShutters.conf -u
+.venv/bin/python operateShutters.py corridor -c operateShutters.conf -d
+.venv/bin/python operateShutters.py corridor -c operateShutters.conf -dd 0 60
 ``` 
 
 2. Manually start Web interface only<br/>You can start the web-interface by typing:<br/>Once started, you can access the web interface at http://IPaddressOfYourPi:80. From there you can further modify your settings.   
 ```sh
-sudo python3 /home/pi/Pi-Somfy/operateShutters.py -c /home/pi/Pi-Somfy/operateShutters.conf -a 
+sudo .venv/bin/python operateShutters.py -c operateShutters.conf -a 
 ```    
 
 3. Manually start Web interface and Alexa interface<br/>You can start the web-interface by typing:
 ```sh
-sudo python3 /home/pi/Pi-Somfy/operateShutters.py -c /home/pi/Pi-Somfy/operateShutters.conf -a -e
+sudo .venv/bin/python operateShutters.py -c operateShutters.conf -a -e
 ```    
 
 4. Manually start Web interface and MQTT integration (for Home Assistant)<br/>You can start the web-interface by typing:
 ```sh
-sudo python3 /home/pi/Pi-Somfy/operateShutters.py -c /home/pi/Pi-Somfy/operateShutters.conf -a -m
+sudo .venv/bin/python operateShutters.py -c operateShutters.conf -a -m
 ```    
 
 5. Finally, the recommended way to operate it is using a systemd service on boot time. You can do so by typing:
 ```sh
-sudo bash /home/pi/Pi-Somfy/installService.sh
+sudo bash ./installService.sh
 ```
-The service will be installed as a system service right after establishing network connectivity.
+The service will be installed as `pi-somfy.service` and starts after network connectivity.
+By default, the service runs the web interface with `-a`. To also enable MQTT and Alexa, install it like this:
+
+```sh
+PI_SOMFY_ARGS="-a -m -e" sudo -E bash ./installService.sh
+```
+
 If you want to stop the service simply type:
 ```sh
-sudo systemctl stop shutters.service
+sudo systemctl stop pi-somfy.service
 ```  
 If you want to start the service simply type:
 ```sh
-sudo systemctl start shutters.service
+sudo systemctl start pi-somfy.service
 ```  
 If you want to restart the service simply type:
 ```sh
-sudo systemctl restart shutters.service
+sudo systemctl restart pi-somfy.service
 ```  
-Note, currently the service expects python3 for starting up.
+The installer writes the service file with the path to your current checkout and uses `.venv/bin/python` when that virtual environment exists.
 ```
-ExecStart=sudo /usr/bin/python3 /home/pi/Pi-Somfy/operateShutters.py -c /home/pi/Pi-Somfy/operateShutters.conf -a -e -m
+ExecStart=/path/to/Pi-Somfy/.venv/bin/python /path/to/Pi-Somfy/operateShutters.py -c /path/to/Pi-Somfy/operateShutters.conf -a
 ```
 
 6. Alternatively, you can use cron to run the program at boot time. You can do so by typing:
@@ -234,8 +260,8 @@ sudo crontab -e
 Note, that "crontab -e" will just open a console-based text editor that you can edit the crontab script. The first time you run "crontab -e" you will be prompted to choose the editor. I recommend nano. From the crontab window, add the following to the bottom of the crontab script
 
 ```
-@reboot sleep 60;python3 /home/pi/Pi-Somfy/operateShutters.py -c /home/pi/Pi-Somfy/operateShutters.conf -a -e -m
-0 * * * * python3 /home/pi/Pi-Somfy/operateShutters.py -c /home/pi/Pi-Somfy/operateShutters.conf -a -e -m
+@reboot sleep 60; cd /path/to/Pi-Somfy && .venv/bin/python operateShutters.py -c operateShutters.conf -a -e -m
+0 * * * * cd /path/to/Pi-Somfy && .venv/bin/python operateShutters.py -c operateShutters.conf -a -e -m
 ```
 
 And save the crontab schedule. (if using nano type press ctrl-o to save the file, ctrl-x to exit nano). Now, every time your system is booted operateShutters will start.
@@ -341,7 +367,7 @@ If you choose not to use the Home Assistant add-in, you can download the [Mosqui
 Second, start `operateShutters.py` with the "-m" option. This should look similar to this:
 
 ```sh
-operateShutters.py -c /home/pi/Pi-Somfy/operateShutters.conf -a -m
+.venv/bin/python operateShutters.py -c operateShutters.conf -a -m
 ```
 
 And that's it, you are all set. 
@@ -412,10 +438,10 @@ The project has been updated to use current software libraries and fix a number 
 If you already have Pi-Somfy installed, follow these steps to upgrade:
 
 ```sh
-cd /home/pi/Pi-Somfy
+cd ~/Pi-Somfy
 git pull
-sudo pip3 install -r requirements.txt
-sudo systemctl restart shutters.service
+.venv/bin/python -m pip install -r requirements.txt
+sudo systemctl restart pi-somfy.service
 ```
 
 Note: if you are not using MQTT (`-m` flag), `paho-mqtt` is no longer required and you can skip installing it. Your existing `operateShutters.conf` will be preserved — the upgrade only replaces code files.

@@ -1,3 +1,6 @@
+# Raspberry Pi OS users should install GPIO/SPI bindings with apt first:
+# sudo apt-get install python3-pigpio python3-lgpio python3-spidev
+# Then install these requirements from a venv created with --system-site-packages.
 ephem
 configparser
 Flask

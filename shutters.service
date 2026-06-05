@@ -1,15 +1,17 @@
-
+# Example only. installService.sh generates an install-specific
+# /etc/systemd/system/pi-somfy.service using the checkout path.
 [Unit]
 Description=Pi Somfy Shutter Service
 After=network-online.target
+Wants=network-online.target
 
 [Service]
-User=pi
-ExecStart=sudo bash /home/pi/Pi-Somfy/start.sh
+Type=simple
+WorkingDirectory=/opt/Pi-Somfy
 Environment=PYTHONUNBUFFERED=1
+ExecStart=/opt/Pi-Somfy/.venv/bin/python /opt/Pi-Somfy/operateShutters.py -c /opt/Pi-Somfy/operateShutters.conf -a
 Restart=on-failure
-Type=exec
-
+RestartSec=5
 
 [Install]
 WantedBy=multi-user.target
