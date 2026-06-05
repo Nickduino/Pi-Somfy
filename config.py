@@ -5,6 +5,7 @@ import errno
 import logging, logging.handlers
 import threading
 import re
+from cc1101_backend import CC1101Config
 
 try:
     from ConfigParser import RawConfigParser
@@ -127,10 +128,10 @@ class MyConfig (MyLog):
         self.HTTPPort = 80
         self.HTTPSPort = 443
         self.RFBackend = "gpio"
-        self.CC1101Frequency = 433.42
-        self.CC1101SPIBus = 0
-        self.CC1101SPIDevice = 0
-        self.CC1101OutputPower = 0xC6
+        self.CC1101Frequency = CC1101Config.DEFAULT_FREQUENCY_MHZ
+        self.CC1101SPIBus = CC1101Config.DEFAULT_SPI_BUS
+        self.CC1101SPIDevice = CC1101Config.DEFAULT_SPI_DEVICE
+        self.CC1101OutputPower = CC1101Config.DEFAULT_OUTPUT_POWER
         self.RTS_Address = "0x279620"
         self.MQTT_ClientID = "somfy-mqtt-bridge"
         self.Shutters = {}

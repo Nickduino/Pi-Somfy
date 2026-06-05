@@ -101,6 +101,8 @@ try:
     from webserver import FlaskAppWrapper
     from alexa import Alexa
     from shutil import copyfile
+    from cc1101_backend import CC1101Config
+    from cc1101_backend import CC1101Transmitter
 except Exception as e1:
     print("\n\nThis program requires the modules located from the same github repository that are not present.\n")
     print("Error: " + str(e1))
@@ -112,7 +114,6 @@ class Shutter(MyLog):
     buttonStop = 0x1
     buttonDown = 0x4
     buttonProg = 0x8
-    CC1101_SYMBOL_RATE_BAUD = 1562.5
 
     class ShutterState: # Definition of one shutter state
         position = None # as percentage: 0 = closed (down), 100 = open (up)
@@ -375,23 +376,11 @@ class Shutter(MyLog):
           self._sendWave_pigpio(repetition)
 
     def _sendWave_cc1101(self, repetition, cc1101_module=None):
-       if cc1101_module is None:
-          try:
-             import cc1101 as cc1101_module
-          except ImportError as e:
-             self.FatalError("RFBackend=cc1101 requires the cc1101 Python package: " + str(e))
-
-       frequency_hz = float(getattr(self.config, "CC1101Frequency", 433.42)) * 1000000
-       spi_bus = int(getattr(self.config, "CC1101SPIBus", 0))
-       spi_device = int(getattr(self.config, "CC1101SPIDevice", 0))
-       output_power = int(getattr(self.config, "CC1101OutputPower", 0xC6))
-
-       with cc1101_module.CC1101(spi_bus=spi_bus, spi_chip_select=spi_device, lock_spi_device=True) as radio:
-          radio.set_base_frequency_hertz(frequency_hz)
-          radio.set_symbol_rate_baud(self.CC1101_SYMBOL_RATE_BAUD)
-          radio.set_output_power((0, output_power))
-          with radio.asynchronous_transmission():
-             self._sendWave_gpio(repetition)
+       try:
+          transmitter = CC1101Transmitter(CC1101Config.from_app_config(self.config), cc1101_module=cc1101_module)
+          transmitter.transmit(self._sendWave_gpio, repetition)
+       except RuntimeError as e:
+          self.FatalError(str(e))
 
     def _sendWave_pigpio(self, repetition):
        #This is where all the awesomeness is happening. You're telling the daemon what you wanna send
