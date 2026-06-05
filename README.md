@@ -33,6 +33,34 @@ Note that I used GPIO 4 but you can change the value of __TXGPIO__ to whatever y
 
 OK. now this all should look like this. Note that some of the pictures are a bit confusing with regards to which GPIO a cable connects to. It's easier to see on the above diagram. But if you struggle, maybe the [Wiring Diagram](documentation/Wiring%20Diagram.txt) helps.
 
+### E07-M1101D-SMA / CC1101 option
+
+Pi-Somfy can also drive an E07-M1101D-SMA CC1101 module. This module is controlled over SPI and uses the CC1101 asynchronous transmit mode, with the Somfy RTS waveform driven into GDO0.
+
+The E07-M1101D-SMA must be powered from 3.3V. Do not connect VCC or any logic pin to 5V.
+
+| E07-M1101D-SMA pin | Raspberry Pi 4 physical pin | Raspberry Pi signal |
+| --- | ---: | --- |
+| 1 GND | 6 | GND |
+| 2 VCC | 1 or 17 | 3.3V |
+| 3 GDO0 | 7 | GPIO4 / TXGPIO |
+| 4 CSN | 24 | SPI0 CE0 / GPIO8 |
+| 5 SCK | 23 | SPI0 SCLK / GPIO11 |
+| 6 MOSI | 19 | SPI0 MOSI / GPIO10 |
+| 7 MISO/GDO1 | 21 | SPI0 MISO / GPIO9 |
+| 8 GDO2 | 22 | GPIO25, optional |
+
+Enable SPI on the Pi, then set the RF backend in `operateShutters.conf`:
+
+```ini
+TXGPIO = 4
+RFBackend = cc1101
+CC1101Frequency = 433.42
+CC1101SPIBus = 0
+CC1101SPIDevice = 0
+CC1101OutputPower = 0xC6
+```
+
 
 ![Full Picture](documentation/Full%20Assembly.jpg)<br/>
 ![Pi Connection](documentation/Connection.jpg)<br/>
@@ -77,6 +105,13 @@ Next, we need to install the PIGPIO libraries, to do so, type:
 
 ```sh
 sudo apt-get install pigpio
+```
+
+For the E07-M1101D-SMA / CC1101 backend, also enable SPI and install the spidev package:
+
+```sh
+sudo raspi-config
+sudo apt-get install python3-spidev
 ```
 
 Next install the required Python Libraries:

@@ -5,3 +5,4 @@ paho-mqtt
 pigpio
 lgpio
 requests
+cc1101

@@ -112,6 +112,7 @@ class Shutter(MyLog):
     buttonStop = 0x1
     buttonDown = 0x4
     buttonProg = 0x8
+    CC1101_SYMBOL_RATE_BAUD = 1562.5
 
     class ShutterState: # Definition of one shutter state
         position = None # as percentage: 0 = closed (down), 100 = open (up)
@@ -134,10 +135,11 @@ class Shutter(MyLog):
         if config is not None:
             self.config = config
 
-        if self.config.TXGPIO is not None:
+        if getattr(self.config, "TXGPIO", None) is not None:
            self.TXGPIO=self.config.TXGPIO # 433.42 MHz emitter
         else:
            self.TXGPIO=4 # 433.42 MHz emitter on GPIO 4
+        self.RFBackend = getattr(self.config, "RFBackend", "gpio").strip().lower()
         self.frame = bytearray(7)
         self.callback = []
         self.shutterStateList = {}
@@ -297,7 +299,7 @@ class Shutter(MyLog):
     def registerCallBack(self, callbackFunction):
         self.callback.append(callbackFunction)
 
-    def sendCommand(self, shutterId, button, repetition): #Sending a frame
+    def sendCommand(self, shutterId, button, repetition, cc1101_module=None): #Sending a frame
     # Sending more than two repetitions after the original frame means a button kept pressed and moves the blind in steps 
     # to adjust the tilt. Sending the original frame and three repetitions is the smallest adjustment, sending the original
     # frame and more repetitions moves the blinds up/down for a longer time.
@@ -353,65 +355,98 @@ class Shutter(MyLog):
               outstring = outstring + "0x%0.2X" % octet + ' '
            self.LogInfo (outstring)
 
-           if IS_PI5:
-               self._sendWave_lgpio(repetition)
-           else:
-               #This is where all the awesomeness is happening. You're telling the daemon what you wanna send
-               pi = pigpio.pi() # connect to Pi
-
-               if not pi.connected:
-                  exit()
-
-               pi.wave_add_new()
-               pi.set_mode(self.TXGPIO, pigpio.OUTPUT)
-
-               wf=[]
-               wf.append(pigpio.pulse(1<<self.TXGPIO, 0, 9415)) # wake up pulse
-               wf.append(pigpio.pulse(0, 1<<self.TXGPIO, 89565)) # silence
-               for i in range(2): # hardware synchronization
-                  wf.append(pigpio.pulse(1<<self.TXGPIO, 0, 2560))
-                  wf.append(pigpio.pulse(0, 1<<self.TXGPIO, 2560))
-               wf.append(pigpio.pulse(1<<self.TXGPIO, 0, 4550)) # software synchronization
-               wf.append(pigpio.pulse(0, 1<<self.TXGPIO,  640))
-
-               for i in range (0, 56): # manchester encoding of payload data
-                  if ((self.frame[int(i/8)] >> (7 - (i%8))) & 1):
-                     wf.append(pigpio.pulse(0, 1<<self.TXGPIO, 640))
-                     wf.append(pigpio.pulse(1<<self.TXGPIO, 0, 640))
-                  else:
-                     wf.append(pigpio.pulse(1<<self.TXGPIO, 0, 640))
-                     wf.append(pigpio.pulse(0, 1<<self.TXGPIO, 640))
-
-               wf.append(pigpio.pulse(0, 1<<self.TXGPIO, 30415)) # interframe gap
-
-               for j in range(1,repetition): # repeating frames
-                        for i in range(7): # hardware synchronization
-                              wf.append(pigpio.pulse(1<<self.TXGPIO, 0, 2560))
-                              wf.append(pigpio.pulse(0, 1<<self.TXGPIO, 2560))
-                        wf.append(pigpio.pulse(1<<self.TXGPIO, 0, 4550)) # software synchronization
-                        wf.append(pigpio.pulse(0, 1<<self.TXGPIO,  640))
-
-                        for i in range (0, 56): # manchester encoding of payload data
-                              if ((self.frame[int(i/8)] >> (7 - (i%8))) & 1):
-                                 wf.append(pigpio.pulse(0, 1<<self.TXGPIO, 640))
-                                 wf.append(pigpio.pulse(1<<self.TXGPIO, 0, 640))
-                              else:
-                                 wf.append(pigpio.pulse(1<<self.TXGPIO, 0, 640))
-                                 wf.append(pigpio.pulse(0, 1<<self.TXGPIO, 640))
-
-                        wf.append(pigpio.pulse(0, 1<<self.TXGPIO, 30415)) # interframe gap
-
-               pi.wave_add_generic(wf)
-               wid = pi.wave_create()
-               pi.wave_send_once(wid)
-               while pi.wave_tx_busy():
-                  pass
-               pi.wave_delete(wid)
-
-               pi.stop()
+           self._sendWave(repetition, cc1101_module=cc1101_module)
        finally:
            self.lock.release()
            self.LogDebug("sendCommand: Lock released")
+
+    def _sendWave(self, repetition, cc1101_module=None):
+       if self.RFBackend == "gpio":
+          self._sendWave_gpio(repetition)
+       elif self.RFBackend == "cc1101":
+          self._sendWave_cc1101(repetition, cc1101_module=cc1101_module)
+       else:
+          self.FatalError("Unsupported RFBackend: " + str(self.RFBackend))
+
+    def _sendWave_gpio(self, repetition):
+       if IS_PI5:
+          self._sendWave_lgpio(repetition)
+       else:
+          self._sendWave_pigpio(repetition)
+
+    def _sendWave_cc1101(self, repetition, cc1101_module=None):
+       if cc1101_module is None:
+          try:
+             import cc1101 as cc1101_module
+          except ImportError as e:
+             self.FatalError("RFBackend=cc1101 requires the cc1101 Python package: " + str(e))
+
+       frequency_hz = float(getattr(self.config, "CC1101Frequency", 433.42)) * 1000000
+       spi_bus = int(getattr(self.config, "CC1101SPIBus", 0))
+       spi_device = int(getattr(self.config, "CC1101SPIDevice", 0))
+       output_power = int(getattr(self.config, "CC1101OutputPower", 0xC6))
+
+       with cc1101_module.CC1101(spi_bus=spi_bus, spi_chip_select=spi_device, lock_spi_device=True) as radio:
+          radio.set_base_frequency_hertz(frequency_hz)
+          radio.set_symbol_rate_baud(self.CC1101_SYMBOL_RATE_BAUD)
+          radio.set_output_power((0, output_power))
+          with radio.asynchronous_transmission():
+             self._sendWave_gpio(repetition)
+
+    def _sendWave_pigpio(self, repetition):
+       #This is where all the awesomeness is happening. You're telling the daemon what you wanna send
+       pi = pigpio.pi() # connect to Pi
+
+       if not pi.connected:
+          exit()
+
+       pi.wave_add_new()
+       pi.set_mode(self.TXGPIO, pigpio.OUTPUT)
+
+       wf=[]
+       wf.append(pigpio.pulse(1<<self.TXGPIO, 0, 9415)) # wake up pulse
+       wf.append(pigpio.pulse(0, 1<<self.TXGPIO, 89565)) # silence
+       for i in range(2): # hardware synchronization
+          wf.append(pigpio.pulse(1<<self.TXGPIO, 0, 2560))
+          wf.append(pigpio.pulse(0, 1<<self.TXGPIO, 2560))
+       wf.append(pigpio.pulse(1<<self.TXGPIO, 0, 4550)) # software synchronization
+       wf.append(pigpio.pulse(0, 1<<self.TXGPIO,  640))
+
+       for i in range (0, 56): # manchester encoding of payload data
+          if ((self.frame[int(i/8)] >> (7 - (i%8))) & 1):
+             wf.append(pigpio.pulse(0, 1<<self.TXGPIO, 640))
+             wf.append(pigpio.pulse(1<<self.TXGPIO, 0, 640))
+          else:
+             wf.append(pigpio.pulse(1<<self.TXGPIO, 0, 640))
+             wf.append(pigpio.pulse(0, 1<<self.TXGPIO, 640))
+
+       wf.append(pigpio.pulse(0, 1<<self.TXGPIO, 30415)) # interframe gap
+
+       for j in range(1,repetition): # repeating frames
+                for i in range(7): # hardware synchronization
+                      wf.append(pigpio.pulse(1<<self.TXGPIO, 0, 2560))
+                      wf.append(pigpio.pulse(0, 1<<self.TXGPIO, 2560))
+                wf.append(pigpio.pulse(1<<self.TXGPIO, 0, 4550)) # software synchronization
+                wf.append(pigpio.pulse(0, 1<<self.TXGPIO,  640))
+
+                for i in range (0, 56): # manchester encoding of payload data
+                      if ((self.frame[int(i/8)] >> (7 - (i%8))) & 1):
+                         wf.append(pigpio.pulse(0, 1<<self.TXGPIO, 640))
+                         wf.append(pigpio.pulse(1<<self.TXGPIO, 0, 640))
+                      else:
+                         wf.append(pigpio.pulse(1<<self.TXGPIO, 0, 640))
+                         wf.append(pigpio.pulse(0, 1<<self.TXGPIO, 640))
+
+                wf.append(pigpio.pulse(0, 1<<self.TXGPIO, 30415)) # interframe gap
+
+       pi.wave_add_generic(wf)
+       wid = pi.wave_create()
+       pi.wave_send_once(wid)
+       while pi.wave_tx_busy():
+          pass
+       pi.wave_delete(wid)
+
+       pi.stop()
 
     def _sendWave_lgpio(self, repetition):
        """Transmit the Somfy RTS frame using lgpio (Pi 5)."""

@@ -126,6 +126,11 @@ class MyConfig (MyLog):
         self.UseHttps = False
         self.HTTPPort = 80
         self.HTTPSPort = 443
+        self.RFBackend = "gpio"
+        self.CC1101Frequency = 433.42
+        self.CC1101SPIBus = 0
+        self.CC1101SPIDevice = 0
+        self.CC1101OutputPower = 0xC6
         self.RTS_Address = "0x279620"
         self.MQTT_ClientID = "somfy-mqtt-bridge"
         self.Shutters = {}
@@ -150,7 +155,23 @@ class MyConfig (MyLog):
     # -------------------- MyConfig::LoadConfig-----------------------------------
     def LoadConfig(self):
 
-        parameters = {'LogLocation': str, 'Latitude': float, 'Longitude': float, 'SendRepeat': int, 'UseHttps': bool, 'HTTPPort': int, 'HTTPSPort': int, 'TXGPIO': int, 'RTS_Address': str, "Password": str}
+        parameters = {
+            'LogLocation': str,
+            'Latitude': float,
+            'Longitude': float,
+            'SendRepeat': int,
+            'UseHttps': bool,
+            'HTTPPort': int,
+            'HTTPSPort': int,
+            'TXGPIO': int,
+            'RFBackend': str,
+            'CC1101Frequency': float,
+            'CC1101SPIBus': int,
+            'CC1101SPIDevice': int,
+            'CC1101OutputPower': int,
+            'RTS_Address': str,
+            "Password": str
+        }
         
         for key, type in parameters.items():
             try:
@@ -159,6 +180,8 @@ class MyConfig (MyLog):
             except Exception as e1:
                 self.LogErrorLine("Missing config file or config file entries in Section General for key "+key+": " + str(e1))
                 return False
+
+        self.RFBackend = self.RFBackend.strip().lower()
 
         parameters = {'MQTT_Server': str, 'MQTT_Port': int, 'MQTT_User': str, 'MQTT_Password': str, 'MQTT_ClientID': str, 'EnableDiscovery': bool}
         
@@ -262,10 +285,14 @@ class MyConfig (MyLog):
                     elif return_type == float:
                         return self.config.getfloat(sect, Entry)
                     elif return_type == int:
-                        if self.config.get(sect, Entry) == 'None':
+                        value = self.config.get(sect, Entry)
+                        if value == 'None':
                             return None
                         else:             
-                            return self.config.getint(sect, Entry)
+                            try:
+                                return int(value, 0)
+                            except ValueError:
+                                return self.config.getint(sect, Entry)
                     else:
                         self.LogErrorLine("Error in MyConfig:ReadValue: invalid type:" + str(return_type))
                         return default
