@@ -1,6 +1,6 @@
 import unittest
 
-from gpio_backend import GPIOConfig, GPIOTransmitter
+from raw_433_backend import Raw433Config, Raw433Transmitter
 
 
 class FakePi:
@@ -78,7 +78,7 @@ class FakeLgpio:
         self.calls.append(("gpiochip_close", handle))
 
 
-class GPIOBackendTest(unittest.TestCase):
+class Raw433BackendTest(unittest.TestCase):
     def setUp(self):
         FakePi.instances = []
 
@@ -89,13 +89,13 @@ class GPIOBackendTest(unittest.TestCase):
                     return 17
                 return default
 
-        config = GPIOConfig.from_app_config(AppConfig())
+        config = Raw433Config.from_app_config(AppConfig())
 
         self.assertEqual(17, config.tx_gpio)
 
     def test_pigpio_transmitter_sends_waveform(self):
-        transmitter = GPIOTransmitter(
-            GPIOConfig(tx_gpio=4),
+        transmitter = Raw433Transmitter(
+            Raw433Config(tx_gpio=4),
             is_pi5=False,
             pigpio_module=FakePigpio(),
         )
@@ -113,8 +113,8 @@ class GPIOBackendTest(unittest.TestCase):
 
     def test_lgpio_transmitter_sends_waveform(self):
         fake_lgpio = FakeLgpio()
-        transmitter = GPIOTransmitter(
-            GPIOConfig(tx_gpio=4),
+        transmitter = Raw433Transmitter(
+            Raw433Config(tx_gpio=4),
             is_pi5=True,
             lgpio_module=fake_lgpio,
             lgpio_chip=4,

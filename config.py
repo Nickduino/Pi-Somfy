@@ -126,7 +126,7 @@ class MyConfig (MyLog):
         self.UseHttps = False
         self.HTTPPort = 80
         self.HTTPSPort = 443
-        self.RFBackend = "gpio"
+        self.RFBackend = "raw_433"
         self.RTS_Address = "0x279620"
         self.MQTT_ClientID = "somfy-mqtt-bridge"
         self.Shutters = {}

@@ -19,7 +19,7 @@ class RFConfigTest(unittest.TestCase):
         finally:
             os.unlink(path)
 
-    def test_defaults_to_gpio_backend_for_existing_configs(self):
+    def test_defaults_to_raw_433_backend_for_existing_configs(self):
         config = self._load_config(
             """
             [General]
@@ -41,7 +41,7 @@ class RFConfigTest(unittest.TestCase):
             """
         )
 
-        self.assertEqual("gpio", config.RFBackend)
+        self.assertEqual("raw_433", config.RFBackend)
         self.assertFalse(hasattr(config, "CC1101Frequency"))
         self.assertFalse(hasattr(config, "CC1101SPIBus"))
         self.assertFalse(hasattr(config, "CC1101SPIDevice"))

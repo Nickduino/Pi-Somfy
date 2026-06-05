@@ -2,12 +2,15 @@
 
 from cc1101_backend import CC1101Config
 from cc1101_backend import CC1101Transmitter
-from gpio_backend import GPIOConfig
-from gpio_backend import GPIOTransmitter
+from raw_433_backend import Raw433Config
+from raw_433_backend import Raw433Transmitter
 
 
 def get_backend_name(config):
-    return getattr(config, "RFBackend", "gpio").strip().lower()
+    backend_name = getattr(config, "RFBackend", "raw_433").strip().lower()
+    if backend_name == "gpio":
+        return "raw_433"
+    return backend_name
 
 
 def create_transmitter(
@@ -19,20 +22,20 @@ def create_transmitter(
     lgpio_chip=4,
 ):
     backend_name = get_backend_name(config)
-    gpio_transmitter = GPIOTransmitter(
-        GPIOConfig.from_app_config(config),
+    raw_433_transmitter = Raw433Transmitter(
+        Raw433Config.from_app_config(config),
         is_pi5=is_pi5,
         pigpio_module=pigpio_module,
         lgpio_module=lgpio_module,
         lgpio_chip=lgpio_chip,
     )
 
-    if backend_name == "gpio":
-        return gpio_transmitter
+    if backend_name == "raw_433":
+        return raw_433_transmitter
     if backend_name == "cc1101":
         return CC1101Transmitter(
             CC1101Config.from_app_config(config),
-            gpio_transmitter,
+            raw_433_transmitter,
             cc1101_module=cc1101_module,
         )
     raise ValueError("Unsupported RFBackend: " + str(backend_name))

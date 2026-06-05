@@ -36,7 +36,7 @@ operateShutters = importlib.import_module("operateShutters")
 
 class FakeConfig:
     TXGPIO = 4
-    RFBackend = "gpio"
+    RFBackend = "raw_433"
     CC1101Frequency = 433.42
     CC1101SPIBus = 0
     CC1101SPIDevice = 0
@@ -87,9 +87,9 @@ class BackendDispatchTest(unittest.TestCase):
     def setUp(self):
         FakeRadio.instances = []
 
-    def test_gpio_backend_uses_existing_waveform_path(self):
+    def test_raw_433_backend_uses_existing_waveform_path(self):
         config = FakeConfig()
-        config.RFBackend = "gpio"
+        config.RFBackend = "raw_433"
         transmitter = mock.Mock()
         shutter = operateShutters.Shutter(config=config, rf_transmitter=transmitter)
 

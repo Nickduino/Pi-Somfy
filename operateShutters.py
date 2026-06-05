@@ -139,7 +139,7 @@ class Shutter(MyLog):
            self.TXGPIO=self.config.TXGPIO # 433.42 MHz emitter
         else:
            self.TXGPIO=4 # 433.42 MHz emitter on GPIO 4
-        self.RFBackend = getattr(self.config, "RFBackend", "gpio").strip().lower()
+        self.RFBackend = getattr(self.config, "RFBackend", "raw_433").strip().lower()
         self.rf_transmitter = rf_transmitter
         if self.rf_transmitter is None:
            try:
