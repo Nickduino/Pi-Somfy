@@ -75,15 +75,16 @@ Enable SPI on the Pi, then set the top-level RF backend in `operateShutters.conf
 
 ```ini
 TXGPIO = 4
+SendRepeat = 5
 RFBackend = cc1101
 CC1101Frequency = 433.42
 CC1101SPIBus = 0
 CC1101SPIDevice = 0
 CC1101OutputPower = 0xC6
-CC1101TransmitSettleSeconds = 0.01
+CC1101TransmitSettleSeconds = 0.05
 ```
 
-`CC1101TransmitSettleSeconds` keeps GDO0 low briefly after the CC1101 enters asynchronous TX mode before the Somfy waveform starts. The default `0.01` is intended to avoid clipping the first wake-up pulse on modules that need a short TX settle time.
+`CC1101TransmitSettleSeconds` keeps GDO0 low briefly after the CC1101 enters asynchronous TX mode before the Somfy waveform starts. `0.05` has worked reliably with an E07-M1101D-SMA on a Raspberry Pi 4. If one shade still misses commands, increase `SendRepeat` first because it sends more copies of the same Somfy frame.
 
 CC1101 connection photos to add:
 
@@ -162,10 +163,11 @@ RFBackend = raw_433
 For the E07-M1101D-SMA / CC1101 module, set:
 
 ```ini
+SendRepeat = 5
 RFBackend = cc1101
 CC1101Frequency = 433.42
 CC1101OutputPower = 0xC6
-CC1101TransmitSettleSeconds = 0.01
+CC1101TransmitSettleSeconds = 0.05
 ```
 
 Next, test the Python environment by typing:

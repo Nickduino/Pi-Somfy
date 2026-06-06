@@ -126,7 +126,7 @@ class CC1101BackendTest(unittest.TestCase):
             transmitter.transmit(frame, 3)
 
         self.assertEqual([("idle_low",), ("waveform", frame, 3)], calls)
-        sleep_mock.assert_called_once_with(0.01)
+        sleep_mock.assert_called_once_with(0.05)
         self.assertEqual(1, len(FakeRadio.instances))
         radio = FakeRadio.instances[0]
         self.assertEqual(0, radio.spi_bus)
