@@ -119,6 +119,7 @@ class BackendDispatchTest(unittest.TestCase):
         config.CC1101SPIDevice = 0
         config.CC1101OutputPower = 0xC6
         shutter = operateShutters.Shutter(config=config)
+        shutter.rf_transmitter.waveform_transmitter.set_idle_low = mock.Mock()
         shutter.rf_transmitter.waveform_transmitter.transmit = mock.Mock()
 
         shutter.sendCommand("279620", shutter.buttonDown, 3)
@@ -132,6 +133,7 @@ class BackendDispatchTest(unittest.TestCase):
         self.assertIn(("symbol_rate", 1562.5), radio.calls)
         self.assertIn(("output_power", (0, 0xC6)), radio.calls)
         self.assertLess(radio.calls.index(("async_enter",)), radio.calls.index(("async_exit",)))
+        shutter.rf_transmitter.waveform_transmitter.set_idle_low.assert_called_once_with()
         shutter.rf_transmitter.waveform_transmitter.transmit.assert_called_once_with(shutter.frame, 3)
         self.assertEqual(2, config.Shutters["279620"]["code"])
 
@@ -140,11 +142,16 @@ class BackendDispatchTest(unittest.TestCase):
         config.RFBackend = "cc1101"
         shutter = operateShutters.Shutter(config=config)
 
+        shutter.rf_transmitter.waveform_transmitter.set_idle_low = mock.Mock()
         shutter.rf_transmitter.waveform_transmitter.transmit = mock.Mock()
         shutter.sendCommand("279620", shutter.buttonUp, 1)
         shutter.sendCommand("279620", shutter.buttonStop, 1)
 
         self.assertEqual(1, len(FakeRadio.instances))
+        self.assertEqual(
+            [mock.call(), mock.call()],
+            shutter.rf_transmitter.waveform_transmitter.set_idle_low.call_args_list,
+        )
         self.assertEqual(
             [mock.call(shutter.frame, 1), mock.call(shutter.frame, 1)],
             shutter.rf_transmitter.waveform_transmitter.transmit.call_args_list,

@@ -17,6 +17,9 @@ class FakePi:
     def set_mode(self, gpio, mode):
         self.calls.append(("set_mode", gpio, mode))
 
+    def write(self, gpio, level):
+        self.calls.append(("write", gpio, level))
+
     def wave_add_generic(self, waveform):
         self.calls.append(("wave_add_generic", waveform))
 
@@ -58,8 +61,12 @@ class FakeLgpio:
         self.calls.append(("gpiochip_open", chip))
         return "handle"
 
-    def gpio_claim_output(self, handle, gpio):
-        self.calls.append(("gpio_claim_output", handle, gpio))
+    def gpio_claim_output(self, handle, gpio, level=0):
+        self.calls.append(("gpio_claim_output", handle, gpio, level))
+
+    def gpio_write(self, handle, gpio, level):
+        self.calls.append(("gpio_write", handle, gpio, level))
+
 
     def pulse(self, level, mask, delay):
         return ("pulse", level, mask, delay)
@@ -93,6 +100,11 @@ class Raw433BackendTest(unittest.TestCase):
 
         self.assertEqual(17, config.tx_gpio)
 
+    def test_config_uses_default_gpio_when_config_value_is_none(self):
+        config = Raw433Config(tx_gpio=None)
+
+        self.assertEqual(4, config.tx_gpio)
+
     def test_pigpio_transmitter_sends_waveform(self):
         transmitter = Raw433Transmitter(
             Raw433Config(tx_gpio=4),
@@ -105,11 +117,27 @@ class Raw433BackendTest(unittest.TestCase):
 
         fake_pi = FakePi.instances[0]
         self.assertIn(("set_mode", 4, "output"), fake_pi.calls)
+        self.assertIn(("write", 4, 0), fake_pi.calls)
         wave_call = [call for call in fake_pi.calls if call[0] == "wave_add_generic"][0]
         waveform = wave_call[1]
         self.assertEqual(("pulse", 1 << 4, 0, 9415), waveform[0])
         self.assertIn(("wave_send_once", 7), fake_pi.calls)
         self.assertIn(("stop",), fake_pi.calls)
+
+    def test_pigpio_transmitter_can_set_idle_low(self):
+        transmitter = Raw433Transmitter(
+            Raw433Config(tx_gpio=4),
+            is_pi5=False,
+            pigpio_module=FakePigpio(),
+        )
+
+        transmitter.set_idle_low()
+
+        fake_pi = FakePi.instances[0]
+        self.assertEqual(
+            [("set_mode", 4, "output"), ("write", 4, 0), ("stop",)],
+            fake_pi.calls,
+        )
 
     def test_lgpio_transmitter_sends_waveform(self):
         fake_lgpio = FakeLgpio()
@@ -124,11 +152,33 @@ class Raw433BackendTest(unittest.TestCase):
         transmitter.transmit(frame, 1)
 
         self.assertEqual(("gpiochip_open", 4), fake_lgpio.calls[0])
-        self.assertEqual(("gpio_claim_output", "handle", 4), fake_lgpio.calls[1])
+        self.assertEqual(("gpio_claim_output", "handle", 4, 0), fake_lgpio.calls[1])
         tx_wave_call = [call for call in fake_lgpio.calls if call[0] == "tx_wave"][0]
         self.assertEqual("handle", tx_wave_call[1])
         self.assertEqual(4, tx_wave_call[2])
         self.assertEqual(("pulse", 1, 1, 9415), tx_wave_call[3][0])
+
+    def test_lgpio_transmitter_can_set_idle_low(self):
+        fake_lgpio = FakeLgpio()
+        transmitter = Raw433Transmitter(
+            Raw433Config(tx_gpio=4),
+            is_pi5=True,
+            lgpio_module=fake_lgpio,
+            lgpio_chip=4,
+        )
+
+        transmitter.set_idle_low()
+
+        self.assertEqual(
+            [
+                ("gpiochip_open", 4),
+                ("gpio_claim_output", "handle", 4, 0),
+                ("gpio_write", "handle", 4, 0),
+                ("gpio_free", "handle", 4),
+                ("gpiochip_close", "handle"),
+            ],
+            fake_lgpio.calls,
+        )
 
 
 if __name__ == "__main__":

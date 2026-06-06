@@ -1,5 +1,7 @@
 #!/usr/bin/python3
 
+import time
+
 import cc1101
 
 
@@ -8,6 +10,7 @@ class CC1101Config:
     DEFAULT_SPI_BUS = 0
     DEFAULT_SPI_DEVICE = 0
     DEFAULT_OUTPUT_POWER = 0xC6
+    DEFAULT_TRANSMIT_SETTLE_SECONDS = 0.01
     SYMBOL_RATE_BAUD = 1562.5
 
     def __init__(
@@ -16,11 +19,13 @@ class CC1101Config:
         spi_bus=DEFAULT_SPI_BUS,
         spi_device=DEFAULT_SPI_DEVICE,
         output_power=DEFAULT_OUTPUT_POWER,
+        transmit_settle_seconds=DEFAULT_TRANSMIT_SETTLE_SECONDS,
     ):
         self.frequency_mhz = float(frequency_mhz)
         self.spi_bus = int(spi_bus)
         self.spi_device = int(spi_device)
         self.output_power = int(output_power)
+        self.transmit_settle_seconds = float(transmit_settle_seconds)
         self.symbol_rate_baud = self.SYMBOL_RATE_BAUD
 
     @classmethod
@@ -51,12 +56,23 @@ class CC1101Config:
                     default=cls.DEFAULT_OUTPUT_POWER,
                     section="General",
                 ),
+                transmit_settle_seconds=config.ReadValue(
+                    "CC1101TransmitSettleSeconds",
+                    return_type=float,
+                    default=cls.DEFAULT_TRANSMIT_SETTLE_SECONDS,
+                    section="General",
+                ),
             )
         return cls(
             frequency_mhz=getattr(config, "CC1101Frequency", cls.DEFAULT_FREQUENCY_MHZ),
             spi_bus=getattr(config, "CC1101SPIBus", cls.DEFAULT_SPI_BUS),
             spi_device=getattr(config, "CC1101SPIDevice", cls.DEFAULT_SPI_DEVICE),
             output_power=getattr(config, "CC1101OutputPower", cls.DEFAULT_OUTPUT_POWER),
+            transmit_settle_seconds=getattr(
+                config,
+                "CC1101TransmitSettleSeconds",
+                cls.DEFAULT_TRANSMIT_SETTLE_SECONDS,
+            ),
         )
 
     @property
@@ -79,9 +95,13 @@ class CC1101Transmitter:
         )
 
     def transmit(self, frame, repetition):
+        if hasattr(self.waveform_transmitter, "set_idle_low"):
+            self.waveform_transmitter.set_idle_low()
         with self.radio as radio:
             radio.set_base_frequency_hertz(self.config.frequency_hz)
             radio.set_symbol_rate_baud(self.config.symbol_rate_baud)
             radio.set_output_power(self.config.output_power_table)
             with radio.asynchronous_transmission():
+                if self.config.transmit_settle_seconds > 0:
+                    time.sleep(self.config.transmit_settle_seconds)
                 self.waveform_transmitter.transmit(frame, repetition)

@@ -7,6 +7,8 @@ class Raw433Config:
     DEFAULT_TXGPIO = 4
 
     def __init__(self, tx_gpio=DEFAULT_TXGPIO):
+        if tx_gpio is None:
+            tx_gpio = self.DEFAULT_TXGPIO
         self.tx_gpio = int(tx_gpio)
 
     @classmethod
@@ -44,6 +46,12 @@ class Raw433Transmitter:
         else:
             self._send_pigpio(frame, repetition)
 
+    def set_idle_low(self):
+        if self.is_pi5:
+            self._set_idle_low_lgpio()
+        else:
+            self._set_idle_low_pigpio()
+
     def _load_pigpio(self):
         if self.pigpio is not None:
             return self.pigpio
@@ -66,6 +74,7 @@ class Raw433Transmitter:
         tx_gpio = self.config.tx_gpio
         pi.wave_add_new()
         pi.set_mode(tx_gpio, pigpio.OUTPUT)
+        pi.write(tx_gpio, 0)
 
         wf = []
         wf.append(pigpio.pulse(1 << tx_gpio, 0, 9415))  # wake up pulse
@@ -111,11 +120,23 @@ class Raw433Transmitter:
         pi.wave_delete(wid)
         pi.stop()
 
+    def _set_idle_low_pigpio(self):
+        pigpio = self._load_pigpio()
+        pi = pigpio.pi()
+
+        if not pi.connected:
+            exit()
+
+        tx_gpio = self.config.tx_gpio
+        pi.set_mode(tx_gpio, pigpio.OUTPUT)
+        pi.write(tx_gpio, 0)
+        pi.stop()
+
     def _send_lgpio(self, frame, repetition):
         lgpio = self._load_lgpio()
         tx_gpio = self.config.tx_gpio
         h = lgpio.gpiochip_open(self.lgpio_chip)
-        lgpio.gpio_claim_output(h, tx_gpio)
+        lgpio.gpio_claim_output(h, tx_gpio, 0)
 
         pulses = []
         pulses.append(lgpio.pulse(1, 1, 9415))   # wake up pulse
@@ -157,5 +178,14 @@ class Raw433Transmitter:
         while lgpio.tx_busy(h, tx_gpio, lgpio.TX_WAVE):
             time.sleep(0.001)
 
+        lgpio.gpio_free(h, tx_gpio)
+        lgpio.gpiochip_close(h)
+
+    def _set_idle_low_lgpio(self):
+        lgpio = self._load_lgpio()
+        tx_gpio = self.config.tx_gpio
+        h = lgpio.gpiochip_open(self.lgpio_chip)
+        lgpio.gpio_claim_output(h, tx_gpio, 0)
+        lgpio.gpio_write(h, tx_gpio, 0)
         lgpio.gpio_free(h, tx_gpio)
         lgpio.gpiochip_close(h)

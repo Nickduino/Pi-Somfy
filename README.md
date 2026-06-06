@@ -80,7 +80,10 @@ CC1101Frequency = 433.42
 CC1101SPIBus = 0
 CC1101SPIDevice = 0
 CC1101OutputPower = 0xC6
+CC1101TransmitSettleSeconds = 0.01
 ```
+
+`CC1101TransmitSettleSeconds` keeps GDO0 low briefly after the CC1101 enters asynchronous TX mode before the Somfy waveform starts. The default `0.01` is intended to avoid clipping the first wake-up pulse on modules that need a short TX settle time.
 
 CC1101 connection photos to add:
 
@@ -160,6 +163,9 @@ For the E07-M1101D-SMA / CC1101 module, set:
 
 ```ini
 RFBackend = cc1101
+CC1101Frequency = 433.42
+CC1101OutputPower = 0xC6
+CC1101TransmitSettleSeconds = 0.01
 ```
 
 Next, test the Python environment by typing:

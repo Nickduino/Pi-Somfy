@@ -3,6 +3,7 @@ import inspect
 import sys
 import types
 import unittest
+from unittest import mock
 
 fake_cc1101 = types.ModuleType("cc1101")
 sys.modules["cc1101"] = fake_cc1101
@@ -67,6 +68,7 @@ class CC1101BackendTest(unittest.TestCase):
             CC1101SPIBus=0,
             CC1101SPIDevice=1,
             CC1101OutputPower=0xC6,
+            CC1101TransmitSettleSeconds=0.02,
         )
 
         config = CC1101Config.from_app_config(app_config)
@@ -75,6 +77,7 @@ class CC1101BackendTest(unittest.TestCase):
         self.assertEqual(0, config.spi_bus)
         self.assertEqual(1, config.spi_device)
         self.assertEqual(0xC6, config.output_power)
+        self.assertEqual(0.02, config.transmit_settle_seconds)
         self.assertEqual(1562.5, config.symbol_rate_baud)
 
     def test_config_reads_values_from_myconfig_interface(self):
@@ -85,6 +88,7 @@ class CC1101BackendTest(unittest.TestCase):
                     "CC1101SPIBus": "0",
                     "CC1101SPIDevice": "1",
                     "CC1101OutputPower": "0xC6",
+                    "CC1101TransmitSettleSeconds": "0.02",
                 }
                 value = values.get(entry)
                 if value is None:
@@ -101,6 +105,7 @@ class CC1101BackendTest(unittest.TestCase):
         self.assertEqual(0, config.spi_bus)
         self.assertEqual(1, config.spi_device)
         self.assertEqual(0xC6, config.output_power)
+        self.assertEqual(0.02, config.transmit_settle_seconds)
 
     def test_transmitter_configures_radio_and_calls_waveform_callback(self):
         config = CC1101Config(
@@ -109,14 +114,19 @@ class CC1101BackendTest(unittest.TestCase):
             spi_device=0,
             output_power=0xC6,
         )
-        waveform_transmitter = types.SimpleNamespace(transmit=lambda frame, repetition: calls.append(("waveform", frame, repetition)))
+        waveform_transmitter = types.SimpleNamespace(
+            set_idle_low=lambda: calls.append(("idle_low",)),
+            transmit=lambda frame, repetition: calls.append(("waveform", frame, repetition)),
+        )
         frame = bytearray([0] * 7)
         calls = []
 
         transmitter = CC1101Transmitter(config, waveform_transmitter)
-        transmitter.transmit(frame, 3)
+        with mock.patch("cc1101_backend.time.sleep") as sleep_mock:
+            transmitter.transmit(frame, 3)
 
-        self.assertEqual([("waveform", frame, 3)], calls)
+        self.assertEqual([("idle_low",), ("waveform", frame, 3)], calls)
+        sleep_mock.assert_called_once_with(0.01)
         self.assertEqual(1, len(FakeRadio.instances))
         radio = FakeRadio.instances[0]
         self.assertEqual(0, radio.spi_bus)
