@@ -95,7 +95,7 @@ trick does not exist for receivers:**
   commodity part. Running one unmodified (centered 500 kHz off) loses most of
   its sensitivity.
 
-### 4.2 Recommended: CC1101 transceiver module (~$3)
+### 4.2 CC1101 transceiver module (~$3)
 
 The CC1101 is tuned **in software**: we write its frequency registers once at
 startup and set it to OOK receive with *asynchronous serial output*, after
@@ -104,7 +104,7 @@ receiver — demodulated 0/1 that we timestamp with GPIO edge callbacks, matchin
 the project's existing GPIO style. No soldering, no rare parts, exact
 433.42 MHz, 3.3 V native (Pi-safe).
 
-Wiring (SPI is only used for one-time configuration; see §5.2):
+Wiring (SPI is only used for one-time configuration; see §5.1):
 
 | CC1101 pin | Signal | Default GPIO | Physical pin (Pi 4) | Note |
 |---|---|---|---|---|
@@ -135,14 +135,7 @@ match by label, not by position (MOSI may be printed `SI`, MISO `SO`).
                      └──────┴──────┘
 ```
 
-### 4.3 Alternative: RXB6/RXB8 superheterodyne
-
-For purists who accept reduced range or manage to source a 433.42 crystal:
-power at **3.3 V** (the data pin follows VCC; 5 V would damage the Pi), data
-pin → `RXGPIO`. Works with the same software; only §5.2 (CC1101 init) is
-skipped. Not the recommended path.
-
-### 4.4 Antenna
+### 4.3 Antenna
 
 Today's antenna-less transmitter reaches the whole house because the *blind
 motors* have good factory antennas — the weak TX signal is compensated by good
@@ -174,7 +167,7 @@ Internal components:
   the status byte returned with every transfer, read back each written
   register, and abort startup loudly on any mismatch (a mis-wired SPI
   otherwise degrades silently into a deaf receiver). Register values: see
-  Appendix A. Skipped when `RXType = raw` (plain receiver wired to `RXGPIO`).
+  Appendix A.
 - **Edge source** — mirrors the TX path's library split (selected by the
   existing `IS_PI5` flag), so the receiver runs on the exact stack the project
   already ships:
@@ -270,9 +263,7 @@ presses with **zero MQTT/HA changes**.
 # (Optional) GPIO where the RF receiver's data pin is connected.
 # Presence of this key enables the receiver.
 RXGPIO = 26
-# Receiver type: cc1101 (default, configured via bit-banged SPI) or raw
-RXType = cc1101
-# CC1101 bit-banged SPI pins (only used when RXType = cc1101)
+# CC1101 bit-banged SPI pins
 RXSpiSCK = 21
 RXSpiMOSI = 20
 RXSpiMISO = 19
@@ -434,12 +425,12 @@ Only after the POC passes do we start the integration milestones — and
 | Risk | Mitigation |
 |---|---|
 | Frequency offset kills range | CC1101 tuned to exactly 433.42 MHz; POC range test before integration |
-| 5 V receiver data pin damages Pi GPIO | CC1101 is 3.3 V native; RXB6 alternative documented as 3.3 V-powered only |
 | RF noise floods the edge callback | 150 µs kernel debounce, cheap state-machine reset, checksum, address filter; POC criterion #4 |
 | Receiver hears the Pi's own TX | Address self-echo filter + decode pause while `sendCommand` holds its lock |
 | STOP while stationary moves to stored "my" position | Already modelled by the existing intermediate-position fallback in `stop()` — physical presses inherit it, incl. the MY ping-pong (see §5.2). Requires `[ShutterIntermediatePositions]` to match the motor's stored MY |
 | Physical 5 s MY long-press reprograms the motor's stored MY, silently invalidating `[ShutterIntermediatePositions]` | Document in README; M3 detects it (high MY repeat count while the model says stationary), logs a warning and raises an HA notification that the configured intermediate position may have diverged |
 | POC add-on and Pi-Somfy add-on each start a pigpiod (DMA/`/dev/mem` contention) | Never run both at once; the POC's built-in test transmitter covers loopback without Pi-Somfy. Not an issue after integration: one process, one daemon for TX+RX |
+| `operateShutters.py`'s `startGPIO()` starts pigpiod with `-l -m` — `-m` disables alerts, the mechanism `pi.callback()` uses for edge notifications. TX never needed alerts so this went unnoticed; M1's receiver adding an edge callback onto this same daemon would silently never fire (confirmed during the M0 POC: edges stayed at 0 across every CC1101 register configuration tried until `-m` was removed, at which point loopback immediately hit 100 %) | Drop `-m` from `operateShutters.py`'s pigpiod startup when M1 wires the receiver into the shared daemon |
 | Edge-timestamp jitter under load | Timestamps come from pigpiod (µs ticks, Pi 1–4) or the kernel (lgpio, Pi 5), not from Python; symbol tolerance ±35 % (±224 µs) vs typical jitter of tens of µs; loopback soak validates |
 | Positions lost on reboot (all shutters report "closed" to HA) | Persist settled positions to `[ShutterPositions]` and restore at startup (§5.6); blinds moved while the Pi is off remain a best guess until the next full up/down |
 

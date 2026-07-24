@@ -1,0 +1,42 @@
+---
+configuration:
+  rx_gpio_pin:
+    name: Receiver data GPIO
+    description: >-
+      GPIO wired to the receiver's demodulated data output (CC1101 GDO0).
+      Default is GPIO 26 (physical pin 37).
+  spi_sck:
+    name: CC1101 SPI clock GPIO
+    description: Bit-banged SPI SCK. Default GPIO 21 (physical pin 40).
+  spi_mosi:
+    name: CC1101 SPI MOSI GPIO
+    description: Pi -> radio data (module pin may be printed SI). Default GPIO 20 (pin 38).
+  spi_miso:
+    name: CC1101 SPI MISO GPIO
+    description: >-
+      Radio -> Pi data (module pin may be printed SO). Required — startup
+      verifies every register write by reading it back. Default GPIO 19 (pin 35).
+  spi_csn:
+    name: CC1101 SPI chip-select GPIO
+    description: Default GPIO 16 (physical pin 36).
+  test_tx_interval:
+    name: Loopback test interval (seconds)
+    description: >-
+      When non-zero, transmit a test frame from a dummy remote address on the
+      TX GPIO every N seconds and verify it decodes — validates the whole RX
+      chain without a physical remote. 0 disables.
+  tx_gpio_pin:
+    name: Transmitter GPIO
+    description: GPIO of the existing 433.42 MHz transmitter (loopback test only). Default 4.
+  mqtt_host:
+    name: MQTT host (optional)
+    description: When set, every press is also published to somfy_sniffer/event.
+  mqtt_port:
+    name: MQTT port
+    description: Default 1883.
+  mqtt_user:
+    name: MQTT username (optional)
+    description: Leave empty for anonymous access.
+  mqtt_password:
+    name: MQTT password (optional)
+    description: Only used when a username is set.

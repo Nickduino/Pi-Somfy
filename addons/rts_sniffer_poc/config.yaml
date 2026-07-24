@@ -1,0 +1,48 @@
+name: "RTS Sniffer (POC)"
+description: "Proof-of-concept Somfy RTS receiver: decodes physical remote presses via a CC1101 at 433.42 MHz and logs them"
+version: "0.1.0"
+slug: "rts_sniffer_poc"
+url: "https://github.com/Nickduino/Pi-Somfy"
+arch:
+  - aarch64
+  - armv7
+boot: manual
+startup: application
+init: false
+full_access: true
+# Same hardware access grants as the pi_somfy add-on, no ingress (§7).
+# Stop the Pi-Somfy add-on while this POC runs on Pi 1-4: each container
+# starts its own pigpiod and two daemons contending for DMA//dev/mem is
+# not supported. Use the built-in loopback transmitter instead.
+gpio: true
+privileged:
+  - SYS_RAWIO
+devices:
+  - /dev/mem
+  - /dev/vcio
+  - /dev/gpiochip0
+  - /dev/gpiochip4
+options:
+  rx_gpio_pin: 26
+  spi_sck: 21
+  spi_mosi: 20
+  spi_miso: 19
+  spi_csn: 16
+  test_tx_interval: 0
+  tx_gpio_pin: 4
+  mqtt_host: ""
+  mqtt_port: 1883
+  mqtt_user: ""
+  mqtt_password: ""
+schema:
+  rx_gpio_pin: "int(0,27)"
+  spi_sck: "int(0,27)"
+  spi_mosi: "int(0,27)"
+  spi_miso: "int(0,27)"
+  spi_csn: "int(0,27)"
+  test_tx_interval: "int(0,3600)"
+  tx_gpio_pin: "int(0,27)"
+  mqtt_host: "str?"
+  mqtt_port: "port"
+  mqtt_user: "str?"
+  mqtt_password: "password?"
