@@ -3,6 +3,7 @@ FROM ${BUILD_FROM}
 
 # Install system dependencies (Debian base)
 # Build lgpio from source (for Pi 5) and pigpiod from source (for Pi 1/2/3/4)
+COPY patch_pigpiod.py /tmp/patch_pigpiod.py
 RUN apt-get update && apt-get install -y --no-install-recommends \
         python3 \
         python3-pip \
@@ -24,11 +25,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && pip3 install --no-cache-dir --break-system-packages . \
     && cd /tmp \
     && git clone --depth 1 https://github.com/joan2937/pigpio.git \
+    && python3 /tmp/patch_pigpiod.py /tmp/pigpio/pigpiod.c \
     && cd pigpio \
     && make \
     && make install \
     && cd / \
-    && rm -rf /tmp/lg /tmp/pigpio \
+    && rm -rf /tmp/lg /tmp/pigpio /tmp/patch_pigpiod.py \
     && apt-get purge -y --auto-remove make gcc g++ libc6-dev swig python3-dev \
     && rm -rf /var/lib/apt/lists/*
 
