@@ -627,6 +627,10 @@ class Receiver(threading.Thread, MyLog):
             self.shutter = kwargs["shutter"]
         if kwargs["config"] is not None:
             self.config = kwargs["config"]
+        # Optional: streams hardware bring-up status to the console/add-on
+        # log (self.log alone is file-only), same as operateShutters.py's
+        # own startGPIO() diagnostics. None-safe — LogConsole no-ops without it.
+        self.console = kwargs.get("console")
 
         self._pi = None
         self._lgpio_handle = None
@@ -664,6 +668,7 @@ class Receiver(threading.Thread, MyLog):
             if self._lgpio_handle is None:
                 raise RuntimeError("lgpio: no usable gpiochip found: %s" % last_error)
             self.LogInfo("Receiver: Pi 5, lgpio on gpiochip%d" % LGPIO_CHIP)
+            self.LogConsole("Receiver: Pi 5, lgpio on gpiochip%d" % LGPIO_CHIP)
             self._spi = LgpioBitBangSpi(self._lgpio_handle, spi_sck, spi_mosi, spi_miso, spi_csn)
         else:
             if pigpio is None:
@@ -672,16 +677,19 @@ class Receiver(threading.Thread, MyLog):
             if not self._pi.connected:
                 raise RuntimeError("cannot connect to pigpiod — is it running?")
             self.LogInfo("Receiver: connected to pigpiod")
+            self.LogConsole("Receiver: connected to pigpiod")
             self._spi = PigpioBitBangSpi(self._pi, spi_sck, spi_mosi, spi_miso, spi_csn)
 
         self._cc1101 = CC1101(self._spi, self)
         self._cc1101.configure()
+        self.LogConsole("Receiver: CC1101 configured")
 
         if IS_PI5:
             self._edge_source = LgpioEdgeSource(self._lgpio_handle, rx_gpio, self._on_edge, self)
         else:
             self._edge_source = PigpioEdgeSource(self._pi, rx_gpio, self._on_edge, self)
         self.LogInfo("Receiver: listening on GPIO %d" % rx_gpio)
+        self.LogConsole("Receiver: listening on GPIO %d" % rx_gpio)
 
     def _stop_hardware(self):
         if self._edge_source is not None:
@@ -740,6 +748,7 @@ class Receiver(threading.Thread, MyLog):
             self._start_hardware()
         except Exception as e:
             self.LogError("Receiver: hardware init failed — receiver disabled: " + str(e))
+            self.LogConsole("Receiver: hardware init failed — receiver disabled: " + str(e))
             self._stop_hardware()
             return
         try:
