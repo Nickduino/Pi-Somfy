@@ -51,7 +51,7 @@ ADD https://api.github.com/repos/orren5/Pi-Somfy/commits/reciever_M1 /tmp/branch
 #   docker build --build-arg REPO_URL=... --build-arg GIT_REF=... ...
 ARG BUILD_VERSION
 ARG REPO_URL=https://github.com/orren5/Pi-Somfy.git
-ARG GIT_REF=reciever_M1
+ARG GIT_REF=reciever_M2
 RUN git clone --branch ${GIT_REF} --depth 1 ${REPO_URL} /somfy
 
 WORKDIR /somfy

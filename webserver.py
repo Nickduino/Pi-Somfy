@@ -290,7 +290,8 @@ class FlaskAppWrapper(MyLog):
                 'name': self.config.Shutters[k]['name'],
                 'position': self.shutter.getPosition(k),
                 'durationUp': self.config.Shutters[k]['durationUp'],
-                'durationDown': self.config.Shutters[k]['durationDown']
+                'durationDown': self.config.Shutters[k]['durationDown'],
+                'movementState': self.shutter.getMovementState(k)
             }
         return {'status': 'OK', 'shutters': shutters}
 

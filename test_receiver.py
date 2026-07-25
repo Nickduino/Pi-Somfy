@@ -453,6 +453,14 @@ class MovementCallbackTests(unittest.TestCase):
         shutter._simulateUp("0x02aaaa")
         self.assertEqual(self.movements(), ["opening"])
 
+    def test_get_movement_state_reflects_last_fired_event(self):
+        shutter = self._make_shutter()
+        self.assertIsNone(shutter.getMovementState("0x02aaaa"))
+        shutter._simulateUp("0x02aaaa")
+        self.assertEqual(shutter.getMovementState("0x02aaaa"), "opening")
+        shutter._simulateDown("0x02aaaa")
+        self.assertEqual(shutter.getMovementState("0x02aaaa"), "closing")
+
     def test_simulate_down_fires_closing_immediately(self):
         shutter = self._make_shutter()
         shutter._simulateDown("0x02aaaa")
