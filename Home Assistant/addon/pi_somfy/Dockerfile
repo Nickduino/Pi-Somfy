@@ -42,7 +42,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # using GitHub's commit API here invalidates the cache below whenever the
 # branch actually moves. Testing-only — remove this block alongside
 # REPO_URL/GIT_REF once this merges upstream.
-ADD https://api.github.com/repos/orren5/Pi-Somfy/commits/reciever_M1 /tmp/branch_head.json
+# IMPORTANT: the branch name in this URL must always match GIT_REF below —
+# if you switch testing branches, update BOTH or this silently stops
+# busting the cache (confirmed: this drifted out of sync once already,
+# from reciever_M1 to reciever_M2, and every rebuild kept re-serving a
+# stale clone from before the branch switch with no visible error).
+ADD https://api.github.com/repos/orren5/Pi-Somfy/commits/reciever_M2 /tmp/branch_head.json
 
 # Clone Pi-Somfy source at build time. Defaults below point at this fork's
 # testing branch — revert REPO_URL to https://github.com/Nickduino/Pi-Somfy.git
