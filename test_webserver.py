@@ -54,12 +54,18 @@ class FakeConfig(object):
 
 
 class FakeShutter(object):
-    def __init__(self, movement_states=None, positions=None):
+    def __init__(self, movement_states=None, positions=None, display_positions=None):
         self._movement_states = movement_states or {}
         self._positions = positions or {}
+        # Defaults to _positions unless a test needs to prove getConfig/
+        # getStatus call getDisplayPosition specifically, not getPosition.
+        self._display_positions = display_positions if display_positions is not None else self._positions
 
     def getPosition(self, shutterId):
         return self._positions.get(shutterId, 50)
+
+    def getDisplayPosition(self, shutterId):
+        return self._display_positions.get(shutterId, 50)
 
     def getMovementState(self, shutterId):
         return self._movement_states.get(shutterId)
@@ -101,6 +107,73 @@ class GetConfigMovementStatesTests(unittest.TestCase):
         result = result_of(client.get("/cmd/getConfig"))
         self.assertEqual(result["Positions"], {"0x02aaaa": 75, "0x02bbbb": 50})
 
+    def test_positions_use_display_position_not_settled_position(self):
+        # getConfig must report the live-interpolated estimate (for a moving
+        # shutter), not the last-settled value used for internal decisions.
+        shutter = FakeShutter(positions={"0x02aaaa": 10}, display_positions={"0x02aaaa": 55})
+        client, _ = make_client(shutter=shutter)
+        result = result_of(client.get("/cmd/getConfig"))
+        self.assertEqual(result["Positions"]["0x02aaaa"], 55)
+
+    def test_includes_intermediate_positions_per_shutter(self):
+        config = FakeConfig()
+        config.Shutters["0x02aaaa"]["intermediatePosition"] = 40
+        client, _ = make_client(config=config)
+        result = result_of(client.get("/cmd/getConfig"))
+        self.assertEqual(result["ShutterIntermediatePositions"], {"0x02aaaa": 40, "0x02bbbb": None})
+
+
+@unittest.skipUnless(_HAVE_WEBSERVER, "Flask is required to test webserver.py")
+class SetIntermediatePositionTests(unittest.TestCase):
+    """The 'My Position' wizard step's Save button writes here, so Pi-Somfy's
+    own tracked intermediatePosition matches whatever value was just stored
+    on the real motor via the long-press procedure."""
+
+    def test_sets_position_and_updates_cache(self):
+        client, config = make_client()
+        result = result_of(client.post("/cmd/setIntermediatePosition",
+                           data={"shutter": "0x02aaaa", "position": "40"}))
+        self.assertEqual(result, {"status": "OK", "intermediatePosition": 40})
+        self.assertEqual(config.written, [("0x02aaaa", "40", "ShutterIntermediatePositions")])
+        self.assertEqual(config.Shutters["0x02aaaa"]["intermediatePosition"], 40)
+
+    def test_clears_position_with_blank_value(self):
+        client, config = make_client()
+        config.Shutters["0x02aaaa"]["intermediatePosition"] = 40
+        result = result_of(client.post("/cmd/setIntermediatePosition",
+                           data={"shutter": "0x02aaaa", "position": ""}))
+        self.assertEqual(result, {"status": "OK", "intermediatePosition": None})
+        self.assertEqual(config.written, [("0x02aaaa", "None", "ShutterIntermediatePositions")])
+        self.assertIsNone(config.Shutters["0x02aaaa"]["intermediatePosition"])
+
+    def test_rejects_unknown_shutter(self):
+        client, config = make_client()
+        result = result_of(client.post("/cmd/setIntermediatePosition",
+                           data={"shutter": "0xnotreal", "position": "40"}))
+        self.assertEqual(result["status"], "ERROR")
+        self.assertEqual(config.written, [])
+
+    def test_rejects_out_of_range_position(self):
+        client, config = make_client()
+        result = result_of(client.post("/cmd/setIntermediatePosition",
+                           data={"shutter": "0x02aaaa", "position": "101"}))
+        self.assertEqual(result["status"], "ERROR")
+        self.assertEqual(config.written, [])
+
+    def test_rejects_non_numeric_position(self):
+        client, config = make_client()
+        result = result_of(client.post("/cmd/setIntermediatePosition",
+                           data={"shutter": "0x02aaaa", "position": "abc"}))
+        self.assertEqual(result["status"], "ERROR")
+        self.assertEqual(config.written, [])
+
+    def test_requires_password_when_configured(self):
+        client, config = make_client(config=FakeConfig(password="secret"))
+        result = result_of(client.post("/cmd/setIntermediatePosition",
+                           data={"shutter": "0x02aaaa", "position": "40"}))
+        self.assertEqual(result["status"], "ERROR")
+        self.assertEqual(config.written, [])
+
 
 @unittest.skipUnless(_HAVE_WEBSERVER, "Flask is required to test webserver.py")
 class GetStatusTests(unittest.TestCase):
@@ -114,6 +187,12 @@ class GetStatusTests(unittest.TestCase):
         result = result_of(client.get("/cmd/getStatus"))
         self.assertEqual(result["status"], "OK")
         self.assertEqual(result["shutters"]["0x02aaaa"]["movementState"], "opening")
+
+    def test_position_uses_display_position_not_settled_position(self):
+        shutter = FakeShutter(positions={"0x02aaaa": 10}, display_positions={"0x02aaaa": 55})
+        client, _ = make_client(shutter=shutter)
+        result = result_of(client.get("/cmd/getStatus"))
+        self.assertEqual(result["shutters"]["0x02aaaa"]["position"], 55)
 
     def test_movement_state_is_none_when_never_moved(self):
         client, _ = make_client(shutter=FakeShutter())

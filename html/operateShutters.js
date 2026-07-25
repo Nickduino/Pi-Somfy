@@ -866,6 +866,21 @@ function pressButtons(id, buttons, longPress, confirmMessage) {
      }, "json");
 }
 
+function setIntermediatePosition(id, position) {
+   var url = baseurl.concat("setIntermediatePosition");
+   $.post(url,
+      {shutter: id, position: position},
+      function(result, status){
+         if ((status=="success") && (result.status == "OK")) {
+            config.ShutterIntermediatePositions[id] = result.intermediatePosition;
+            updateManualOperationState();
+            BootstrapDialog.show({type: BootstrapDialog.TYPE_INFO, title: 'Information', message:'My position saved.'});
+         } else {
+            BootstrapDialog.show({type: BootstrapDialog.TYPE_DANGER, title: 'Error', message:'Received Error from Server: '+result.message});
+         }
+     }, "json");
+}
+
 function deleteShutter(id) {
     var url = baseurl.concat("deleteShutter");
       $.post(  url,
@@ -969,6 +984,7 @@ function setupTableShutters () {
 						'<div class="name">'+config.Shutters[shutter]+'</div>' +
                         '<div class="position"></div>' +
                         '<div class="state"></div>' +
+                        '<div class="myPosition"></div>' +
                         '<a class="up btn" title="Up" data-toggle="tooltip" role="button"><svg viewBox="0 0 80 70" xmlns="http://www.w3.org/2000/svg"><path d="M35 14 Q40 0, 45 14 C55 30, 67 52, 71 60 Q75 68, 64 68 L16 68 Q5 68, 9 60 C13 52, 25 30, 35 14 Z" fill="#ccc" stroke="#aaa" stroke-width="1.5"/></svg></a>' +
                         '<a class="stop btn" title="Stop" data-toggle="tooltip" role="button"><svg viewBox="0 0 90 40" xmlns="http://www.w3.org/2000/svg"><rect x="2" y="2" width="86" height="36" rx="18" fill="#ccc" stroke="#aaa" stroke-width="1.5"/></svg></a>' +
                         '<a class="down btn" title="Down" data-toggle="tooltip" role="button"><svg viewBox="0 0 80 70" xmlns="http://www.w3.org/2000/svg"><path d="M9 10 Q5 2, 16 2 L64 2 Q75 2, 71 10 C67 18, 55 40, 45 56 Q40 70, 35 56 C25 40, 13 18, 9 10 Z" fill="#ccc" stroke="#aaa" stroke-width="1.5"/></svg></a>' +
@@ -980,11 +996,12 @@ function setupTableShutters () {
     updateManualOperationState();
 }
 
-// Reflects config.MovementStates ('opening'/'closing'/'stopped'/null) and
-// config.Positions (0-100) onto each Manual Operation card — kept current
-// by refreshMovementStates(), polled while that section is visible, so a
-// physical remote press (or a command from elsewhere) shows up here too,
-// not just commands sent from this page.
+// Reflects config.MovementStates ('opening'/'closing'/'stopped'/null),
+// config.Positions (0-100), and config.ShutterIntermediatePositions (the
+// stored "My" position, 0-100 or null if unset) onto each Manual Operation
+// card — kept current by refreshMovementStates(), polled while that section
+// is visible, so a physical remote press (or a command from elsewhere)
+// shows up here too, not just commands sent from this page.
 function updateManualOperationState() {
     if (!config.MovementStates || !config.Positions) { return; }
     Object.keys(config.MovementStates).forEach(function(shutter) {
@@ -994,6 +1011,10 @@ function updateManualOperationState() {
         card.find(".state").text(label);
         card.find(".position").text(config.Positions[shutter] + "%");
         card.toggleClass("moving", state == "opening" || state == "closing");
+        var myPosition = config.ShutterIntermediatePositions ? config.ShutterIntermediatePositions[shutter] : null;
+        var myPositionUnset = (myPosition === null || myPosition === undefined);
+        card.find(".myPosition").text(myPositionUnset ? "⚠ My position not set" : "My: " + myPosition + "%")
+            .toggleClass("unset", myPositionUnset);
     });
 }
 
@@ -1002,6 +1023,7 @@ function refreshMovementStates() {
         if (!(status=="success")) { return; }
         config.MovementStates = result.MovementStates;
         config.Positions = result.Positions;
+        config.ShutterIntermediatePositions = result.ShutterIntermediatePositions;
         updateManualOperationState();
     });
 }
@@ -1485,6 +1507,8 @@ function setupListeners() {
     // Edit row on configure button click
     $(document).on("click", ".configureShutters", function(){
        configShutter = $(this).parents("tr").attr('name');
+       var current = config.ShutterIntermediatePositions[configShutter];
+       $('#intermediatePositionInput').val((current === null || current === undefined) ? "" : current);
        $('#configure-shutter').modal('show');
     });
 
@@ -1634,7 +1658,16 @@ function setupListeners() {
   $(document).on("click", '.press-button-prog-long', function(){
      pressButtons(configShutter, buttonProg, true);
   });
- 
+
+  $('#save-intermediate-position').on("click", function(){
+     setIntermediatePosition(configShutter, $('#intermediatePositionInput').val());
+  });
+
+  $('#clear-intermediate-position').on("click", function(){
+     $('#intermediatePositionInput').val("");
+     setIntermediatePosition(configShutter, "");
+  });
+
 
     // Shutter Commands
     $(document).on("click", ".up", function(){		

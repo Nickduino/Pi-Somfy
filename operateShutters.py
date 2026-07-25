@@ -164,6 +164,39 @@ class Shutter(MyLog):
         state = self.getShutterState(shutterId, 0)
         return state.position
 
+    # Live-interpolated position while a move is in progress, for UI display
+    # only. Mirrors _simulateStop's elapsed-time/direction math (the same
+    # "how far did it get" estimate a MY-press stop would compute) but never
+    # mutates state or settles a position — internal logic that decides
+    # partial-move direction etc. keeps using getPosition()'s last-settled
+    # value, since an in-flight estimate isn't precise enough to act on.
+    def getDisplayPosition(self, shutterId):
+        state = self.getShutterState(shutterId, 0)
+        movementState = self.movementStateList.get(shutterId)
+        if movementState not in ('opening', 'closing'):
+            return state.position
+
+        secondsSinceLastCommand = time.monotonic() - state.lastCommandTime
+        if secondsSinceLastCommand <= 0:
+            return state.position
+
+        if movementState == 'opening':
+            duration = self.config.Shutters[shutterId]['durationUp']
+            if duration <= 0 or secondsSinceLastCommand >= duration:
+                return 100   # elapsed time already covers the full travel —
+                             # report the target, not the stale pre-move
+                             # position, even if settling hasn't fired yet
+            durationPercentage = secondsSinceLastCommand / duration * 100
+            estimated = state.position + durationPercentage if state.position > 0 else durationPercentage
+            return min(100, int(round(estimated)))
+        else:
+            duration = self.config.Shutters[shutterId]['durationDown']
+            if duration <= 0 or secondsSinceLastCommand >= duration:
+                return 0
+            durationPercentage = secondsSinceLastCommand / duration * 100
+            estimated = state.position - durationPercentage if state.position < 100 else 100 - durationPercentage
+            return max(0, int(round(estimated)))
+
     def setPosition(self, shutterId, newPosition):
         state = self.getShutterState(shutterId)
         with self.shutterStateLock:
@@ -272,43 +305,45 @@ class Shutter(MyLog):
         state = self.getShutterState(shutterId, 50)
 
         self.LogDebug("["+shutterId+"] Previous position: " + str(state.position))
-        # Float seconds, not int(round(...)): a MY press within ~0.5s of a
-        # movement command previously rounded down to 0, failing the ">0"
-        # guard below and misclassifying as "stopped while stationary"
-        # instead of "stopped mid-movement" — far more likely on a physical
-        # remote's quick double-presses than via the network path.
-        secondsSinceLastCommand = time.monotonic() - state.lastCommandTime
-        self.LogDebug("["+shutterId+"] Seconds since last command: " + str(round(secondsSinceLastCommand, 2)))
 
         # Compute position based on time elapsed since last command & command direction
         setupDurationDown = self.config.Shutters[shutterId]['durationDown']
         setupDurationUp = self.config.Shutters[shutterId]['durationUp']
 
+        # Whether the shutter is genuinely moving right now comes from
+        # movementStateList (set by _simulateUp/_simulateDown, and cleared
+        # back to 'stopped' the instant ANY move settles — full, partial, or
+        # a previous MY-position correction), not from comparing elapsed
+        # time against the shutter's *full* 0-100 duration. That old
+        # elapsed-time heuristic misclassified a MY press shortly after a
+        # completed partial/MY move (which settles in less than the full
+        # duration) as "still mid-travel", computing a bogus interrupted
+        # position instead of correctly falling through to the MY-position
+        # logic below — the shutter was already stationary the whole time.
+        movementState = self.movementStateList.get(shutterId)
+        self.LogDebug("["+shutterId+"] Movement state: " + str(movementState))
+
         fallback = False
-        if state.lastCommandDirection == 'up':
-          if secondsSinceLastCommand > 0 and secondsSinceLastCommand < setupDurationUp:
-            durationPercentage = int(round(secondsSinceLastCommand/setupDurationUp * 100))
+        if movementState == 'opening':
+            secondsSinceLastCommand = time.monotonic() - state.lastCommandTime
+            self.LogDebug("["+shutterId+"] Seconds since last command: " + str(round(secondsSinceLastCommand, 2)))
+            durationPercentage = int(round(secondsSinceLastCommand/setupDurationUp * 100)) if setupDurationUp > 0 else 100
             self.LogDebug("["+shutterId+"] Up duration percentage: " + str(durationPercentage) + ", State position: "+ str(state.position))
             if state.position > 0: # after rise from previous position
                 newPosition = min (100 , state.position + durationPercentage)
             else: # after rise from fully closed
                 newPosition = durationPercentage
-          else:  #fallback
-            self.LogWarn("["+shutterId+"] Too much time since up command.")
-            fallback = True
-        elif state.lastCommandDirection == 'down':
-          if secondsSinceLastCommand > 0 and secondsSinceLastCommand < setupDurationDown:
-            durationPercentage = int(round(secondsSinceLastCommand/setupDurationDown * 100))
+        elif movementState == 'closing':
+            secondsSinceLastCommand = time.monotonic() - state.lastCommandTime
+            self.LogDebug("["+shutterId+"] Seconds since last command: " + str(round(secondsSinceLastCommand, 2)))
+            durationPercentage = int(round(secondsSinceLastCommand/setupDurationDown * 100)) if setupDurationDown > 0 else 100
             self.LogDebug("["+shutterId+"] Down duration percentage: " + str(durationPercentage) + ", State position: "+ str(state.position))
             if state.position < 100: # after lower from previous position
                 newPosition = max (0 , state.position - durationPercentage)
             else: # after down from fully opened
                 newPosition = 100 - durationPercentage
-          else:  #fallback
-            self.LogWarn("["+shutterId+"] Too much time since down command.")
-            fallback = True
-        else: # consecutive stops
-            self.LogWarn("["+shutterId+"] Stop pressed while stationary.")
+        else: # already stopped (fully, partially, or from a previous MY correction)
+            self.LogInfo("["+shutterId+"] Stop pressed while stationary.")
             fallback = True
 
         if fallback == True: # Let's assume it will end on the intermediate position ! If it exists !
