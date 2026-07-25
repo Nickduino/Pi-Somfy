@@ -185,6 +185,13 @@ class Shutter(MyLog):
         # Only set new position if registerCommand has not been called in between
         if state.lastCommandTime == oldLastCommandTime:
             self.LogDebug("["+self.config.Shutters[shutterId]['name']+"] Set new final position: " + str(newPosition))
+            # A full/partial move that runs out its timer uninterrupted has
+            # genuinely stopped — fire this before setPosition() so, as
+            # elsewhere, the position callback's more precise open/closed
+            # inference has the last word. Without this, 'opening'/'closing'
+            # would stay stuck forever once a move completes naturally,
+            # since nothing else clears it for this (non-explicit-stop) path.
+            self._fireMovement(shutterId, 'stopped')
             self.setPosition(shutterId, newPosition)
         else:
             self.LogDebug("["+self.config.Shutters[shutterId]['name']+"] Discard final position. Position is now: " + str(state.position))

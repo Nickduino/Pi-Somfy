@@ -456,6 +456,11 @@ class MovementCallbackTests(unittest.TestCase):
     def test_get_movement_state_reflects_last_fired_event(self):
         shutter = self._make_shutter()
         self.assertIsNone(shutter.getMovementState("0x02aaaa"))
+        # Start mid-travel: at position 0 (or 100), the very next _simulateUp/
+        # _simulateDown call computes a near-zero timeToWait for its spawned
+        # settle thread (already at the target end), which can race ahead and
+        # fire 'stopped' before this test's own assertions run.
+        shutter.getShutterState("0x02aaaa", 50)
         shutter._simulateUp("0x02aaaa")
         self.assertEqual(shutter.getMovementState("0x02aaaa"), "opening")
         shutter._simulateDown("0x02aaaa")
@@ -512,6 +517,20 @@ class MovementCallbackTests(unittest.TestCase):
         shutter = self._make_shutter()
         shutter.recordExternalCommand("0x02aaaa", Shutter.buttonUp)
         self.assertEqual(self.movements(), ["opening"])
+
+    def test_full_move_fires_stopped_when_it_completes_naturally(self):
+        # waitAndSetFinalPosition's background thread (spawned by
+        # _simulateUp/_simulateDown for a full, uninterrupted move) must
+        # clear 'opening'/'closing' back to 'stopped' once it reaches 100/0
+        # — this is the only path that settles without an explicit stop
+        # command, so nothing else fires this event for it.
+        shutter = self._make_shutter(duration=0.05)
+        shutter._simulateUp("0x02aaaa")
+        for _ in range(50):
+            if self.movements() == ["opening", "stopped"]:
+                break
+            time.sleep(0.02)
+        self.assertEqual(self.movements(), ["opening", "stopped"])
 
 
 if __name__ == "__main__":
