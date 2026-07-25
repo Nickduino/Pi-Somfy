@@ -20,6 +20,30 @@ else
     sed -i "/^\[General\]/a TXGPIO = ${GPIO_PIN}" "${CONFIG_FILE}"
 fi
 
+# RX receiver (physical Somfy remotes) is optional — only write RXGPIO/RXSpi*
+# into the config file if the user set rx_gpio_pin, so operateShutters.py's
+# `config.RXGPIO is not None` gate stays unset (receiver disabled) otherwise.
+if bashio::config.has_value 'rx_gpio_pin'; then
+    RX_GPIO_PIN=$(bashio::config 'rx_gpio_pin')
+    SPI_SCK=$(bashio::config 'spi_sck')
+    SPI_MOSI=$(bashio::config 'spi_mosi')
+    SPI_MISO=$(bashio::config 'spi_miso')
+    SPI_CSN=$(bashio::config 'spi_csn')
+    bashio::log.info "RX receiver enabled: GPIO ${RX_GPIO_PIN} (CC1101)"
+
+    for entry in "RXGPIO:${RX_GPIO_PIN}" "RXSpiSCK:${SPI_SCK}" "RXSpiMOSI:${SPI_MOSI}" "RXSpiMISO:${SPI_MISO}" "RXSpiCSN:${SPI_CSN}"; do
+        key="${entry%%:*}"
+        value="${entry#*:}"
+        if grep -q "^${key}" "${CONFIG_FILE}"; then
+            sed -i "s/^${key}.*/${key} = ${value}/" "${CONFIG_FILE}"
+        else
+            sed -i "/^\[General\]/a ${key} = ${value}" "${CONFIG_FILE}"
+        fi
+    done
+else
+    bashio::log.info "RX receiver disabled (set rx_gpio_pin in add-on options to enable)"
+fi
+
 # Ensure log location exists and is writable
 sed -i "s|^LogLocation.*|LogLocation = /data/|" "${CONFIG_FILE}"
 
@@ -50,7 +74,10 @@ if [ "${IS_PI5}" = true ]; then
     bashio::log.info "Pi 5 detected — using lgpio (no pigpiod needed)"
 else
     bashio::log.info "Starting pigpiod..."
-    pigpiod -l -m
+    # Deliberately not passing -m (disable alerts): -m silently prevents
+    # pi.callback() from ever delivering edge notifications, which the RX
+    # receiver needs when rx_gpio_pin is set.
+    pigpiod -l
     sleep 1
 
     if ! pgrep -x pigpiod > /dev/null; then

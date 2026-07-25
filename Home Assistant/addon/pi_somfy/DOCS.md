@@ -19,9 +19,24 @@ This add-on runs [Pi-Somfy](https://github.com/Nickduino/Pi-Somfy) directly on y
 
 ## Configuration
 
-| Option     | Default | Description                                    |
-|------------|---------|------------------------------------------------|
-| `gpio_pin` | `4`     | GPIO pin number for the 433.42 MHz transmitter |
+| Option        | Default | Description                                                              |
+|---------------|---------|---------------------------------------------------------------------------|
+| `gpio_pin`    | `4`     | GPIO pin number for the 433.42 MHz transmitter                          |
+| `rx_gpio_pin` | (none)  | GPIO wired to a CC1101 receiver's data output. Leave blank to disable the physical-remote receiver entirely. |
+| `spi_sck`     | `21`    | CC1101 bit-banged SPI clock GPIO (only used when `rx_gpio_pin` is set)   |
+| `spi_mosi`    | `20`    | CC1101 bit-banged SPI MOSI GPIO (only used when `rx_gpio_pin` is set)    |
+| `spi_miso`    | `19`    | CC1101 bit-banged SPI MISO GPIO (only used when `rx_gpio_pin` is set)    |
+| `spi_csn`     | `16`    | CC1101 bit-banged SPI chip-select GPIO (only used when `rx_gpio_pin` is set) |
+
+### Physical remote receiver (optional)
+
+Setting `rx_gpio_pin` enables listening for physical Somfy RTS remote button
+presses via a CC1101 receiver module, so a physical remote and the app stay
+in sync. Pairing a physical remote to a shutter is not yet exposed in the
+web UI — add it manually to
+`[PhysicalRemotes]` in `/data/operateShutters.conf` (map the remote's
+address to a comma-separated list of shutterId(s), same format as the
+`[Shutters]` section).
 
 ## Web UI
 

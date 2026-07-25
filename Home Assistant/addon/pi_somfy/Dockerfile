@@ -32,9 +32,15 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && apt-get purge -y --auto-remove make gcc g++ libc6-dev swig python3-dev \
     && rm -rf /var/lib/apt/lists/*
 
-# Clone Pi-Somfy source at build time
+# Clone Pi-Somfy source at build time. Defaults below point at this fork's
+# testing branch — revert REPO_URL to https://github.com/Nickduino/Pi-Somfy.git
+# and GIT_REF to v${BUILD_VERSION} once this merges upstream and a release
+# tag exists. Override either at build time with:
+#   docker build --build-arg REPO_URL=... --build-arg GIT_REF=... ...
 ARG BUILD_VERSION
-RUN git clone --branch v${BUILD_VERSION} --depth 1 https://github.com/Nickduino/Pi-Somfy.git /somfy
+ARG REPO_URL=https://github.com/orren5/Pi-Somfy.git
+ARG GIT_REF=reciever_M1
+RUN git clone --branch ${GIT_REF} --depth 1 ${REPO_URL} /somfy
 
 WORKDIR /somfy
 
