@@ -650,19 +650,24 @@ class operateShutters(MyLog):
        if not status:  # if it was started successfully (or was already running)...
            pigpiod_process = process
            self.LogInfo ("pigpiod is running, process ID is {} ".format(pigpiod_process))
+           self.LogConsole("pigpiod is running, process ID is {} ".format(pigpiod_process))
 
            try:
                pi = pigpio.pi()  # local GPIO only
                if not pi.connected:
                    self.LogError("pigpio connection could not be established. Check logs to get more details.")
+                   self.LogConsole("pigpio connection could not be established.")
                    return False
                else:
                    self.LogInfo("pigpio's pi instantiated.")
+                   self.LogConsole("pigpio's pi instantiated.")
            except Exception as e:
                start_pigpiod_exception = str(e)
                self.LogError("problem instantiating pi: {}".format(start_pigpiod_exception))
+               self.LogConsole("problem instantiating pi: {}".format(start_pigpiod_exception))
        else:
            self.LogError("start pigpiod was unsuccessful.")
+           self.LogConsole("start pigpiod was unsuccessful (pidof pigpiod status={}).".format(status))
            return False
        return True
 

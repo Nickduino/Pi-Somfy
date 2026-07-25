@@ -20,6 +20,7 @@ privileged:
   - SYS_RAWIO
 devices:
   - /dev/mem
+  - /dev/vcio
   - /dev/gpiochip0
   - /dev/gpiochip4
 map:
