@@ -1,14 +1,14 @@
 # -*- coding: utf-8 -*-
-"""Receiver unit tests (design doc §9) — run anywhere, no GPIO libraries
-needed:
+"""Receiver unit tests — run anywhere, no GPIO libraries needed:
 
     python3 -m unittest discover
 
-Decoder tests are ported from addons/rts_sniffer_poc/test_sniffer.py (the
-same synthetic-edge-stream approach, now against receiver.py's copies).
-The remaining classes test what the POC didn't have: TX-pause gating,
-self-echo filtering, [PhysicalRemotes] group fan-out, and the dispatch
-equivalence between a physical remote press and the app's own buttons.
+Decoder tests feed synthetic (level, timestamp_us) edge streams, built from
+the same pulse tables Shutter.sendCommand uses, directly to RTSDecoder/
+PressTracker. The remaining classes test receiver-specific behavior:
+TX-pause gating, self-echo filtering, [PhysicalRemotes] group fan-out, and
+the dispatch equivalence between a physical remote press and the app's own
+buttons.
 """
 
 import logging
@@ -55,7 +55,7 @@ class BuildFrameTests(unittest.TestCase):
             self.assertEqual(bytes(build_frame(address, button, code)), expected)
 
     def test_deobfuscated_checksum_is_zero(self):
-        # Spec §3: XOR of all 14 nibbles of the de-obfuscated frame must be 0.
+        # XOR of all 14 nibbles of the de-obfuscated frame must be 0.
         recv = build_frame(0x123456, BUTTON_PROG, 4242)
         plain = bytearray(recv)
         for i in range(6, 0, -1):
@@ -111,7 +111,7 @@ class DecoderRoundTripTests(unittest.TestCase):
 
 class DecoderToleranceTests(unittest.TestCase):
     """Aged remote crystals drift and edges jitter; the decoder allows ±30 %
-    on syncs and ±35 % on half-symbols (design doc §5.1)."""
+    on syncs and ±35 % on half-symbols."""
 
     def scaled_edges(self, scale):
         pulses = frame_to_pulses(build_frame(0x279620, BUTTON_UP, 77))
@@ -127,7 +127,7 @@ class DecoderToleranceTests(unittest.TestCase):
 
     def test_edge_jitter(self):
         # ±100 us per edge keeps every duration inside tolerance; typical
-        # daemon/kernel timestamp jitter is tens of us (design doc §10).
+        # daemon/kernel timestamp jitter is tens of us.
         for seed in range(10):
             rng = random.Random(seed)
             edges = [(lvl, ts + rng.randint(-100, 100))
@@ -228,7 +228,7 @@ class PressTrackerTests(unittest.TestCase):
         self.now = 1.0           # quiet period elapsed
         self.tracker.poll()
         self.assertEqual(len(self.ended), 1)
-        self.assertEqual(self.ended[0][1], 4)   # repeat count retained (§5.1)
+        self.assertEqual(self.ended[0][1], 4)   # repeat count retained
 
     def test_new_rolling_code_is_new_press(self):
         self.feed_press(0x14A2C7, BUTTON_UP, 1, repetitions=2)
@@ -356,7 +356,7 @@ class PhysicalRemotesFanOutTests(unittest.TestCase):
         self.assertEqual(shutter.commands, [("0x02aaaa", BUTTON_UP)])
 
 
-# ── Simulation equivalence (§9): physical remote vs. app button ─────────────
+# ── Simulation equivalence: physical remote vs. app button ──────────────────
 # Needs the real Shutter class, which means operateShutters.py's full
 # requirements.txt (ephem, pigpio/lgpio, Flask, paho-mqtt) — unlike the pure
 # decoder tests above, this isn't optional-dependency-light, so skip cleanly
@@ -373,7 +373,7 @@ except Exception:
                      "to test Shutter directly")
 class SimulationEquivalenceTests(unittest.TestCase):
     """recordExternalCommand (physical-remote path) must dispatch to exactly
-    the same _simulate* methods rise()/lower()/stop() use (§5.2) — a
+    the same _simulate* methods rise()/lower()/stop() use — a
     physical press updates the position model identically to the equivalent
     app button, minus the RF transmission."""
 
