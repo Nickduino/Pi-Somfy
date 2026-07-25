@@ -54,8 +54,14 @@ class FakeConfig(object):
 
 
 class FakeShutter(object):
+    def __init__(self, movement_states=None):
+        self._movement_states = movement_states or {}
+
     def getPosition(self, shutterId):
         return 50
+
+    def getMovementState(self, shutterId):
+        return self._movement_states.get(shutterId)
 
 
 class FakeSchedule(object):
@@ -68,12 +74,31 @@ class FakeReceiver(object):
         self._unknown_remotes = list(unknown_remotes)
 
 
-def make_client(config=None, receiver=None):
+def make_client(config=None, receiver=None, shutter=None):
     config = config or FakeConfig()
     wrapper = FlaskAppWrapper(name="test", static_url_path="", log=LOG,
-                              shutter=FakeShutter(), schedule=FakeSchedule(),
+                              shutter=shutter or FakeShutter(), schedule=FakeSchedule(),
                               config=config, receiver=receiver)
     return wrapper.app.test_client(), config
+
+
+@unittest.skipUnless(_HAVE_WEBSERVER, "Flask is required to test webserver.py")
+class GetStatusTests(unittest.TestCase):
+    """getStatus exposes the same movementState signal MQTT gets pushed, so
+    the HA custom component's REST polling can show opening/closing for any
+    trigger source (physical remote, web UI, or Home Assistant itself)."""
+
+    def test_includes_movement_state_per_shutter(self):
+        shutter = FakeShutter(movement_states={"0x02aaaa": "opening"})
+        client, _ = make_client(shutter=shutter)
+        result = result_of(client.get("/cmd/getStatus"))
+        self.assertEqual(result["status"], "OK")
+        self.assertEqual(result["shutters"]["0x02aaaa"]["movementState"], "opening")
+
+    def test_movement_state_is_none_when_never_moved(self):
+        client, _ = make_client(shutter=FakeShutter())
+        result = result_of(client.get("/cmd/getStatus"))
+        self.assertIsNone(result["shutters"]["0x02aaaa"]["movementState"])
 
 
 @unittest.skipUnless(_HAVE_WEBSERVER, "Flask is required to test webserver.py")

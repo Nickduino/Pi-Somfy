@@ -142,6 +142,7 @@ class Shutter(MyLog):
         self.frame = bytearray(7)
         self.callback = []
         self.movementCallback = []
+        self.movementStateList = {}
         self.shutterStateList = {}
         self.shutterStateLock = threading.Lock()
 
@@ -356,8 +357,15 @@ class Shutter(MyLog):
         self.movementCallback.append(callbackFunction)
 
     def _fireMovement(self, shutterId, movementState):
+        self.movementStateList[shutterId] = movementState
         for function in self.movementCallback:
             function(shutterId, movementState)
+
+    # Last movement state fired for a shutter ('opening'/'closing'/'stopped'),
+    # or None if it's never moved this run — lets a REST poller (getStatus)
+    # see the same signal MQTT gets pushed, without needing its own callback.
+    def getMovementState(self, shutterId):
+        return self.movementStateList.get(shutterId)
 
     # Update the position model for a button press heard from a physical RTS
     # remote — dispatches to the same _simulate* methods the TX path uses,

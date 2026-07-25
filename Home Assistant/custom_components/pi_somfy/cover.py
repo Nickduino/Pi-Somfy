@@ -100,10 +100,22 @@ class PiSomfyCover(CoordinatorEntity[PiSomfyCoordinator], CoverEntity):
 
     @callback
     def _handle_coordinator_update(self) -> None:
-        """Handle updated data from the coordinator."""
-        pos = self.current_cover_position
-        if pos is not None and (pos <= 0 or pos >= 100):
-            self._moving = None
+        """Handle updated data from the coordinator.
+
+        Reads Pi-Somfy's own movement-state signal (populated by any trigger
+        source — the app, a physical remote, or the web UI — not just
+        commands issued through Home Assistant) rather than only clearing
+        the optimistic local flag once position settles. This overwrites
+        the optimistic set from async_open_cover/async_close_cover/
+        async_set_cover_position with the server-authoritative value as soon
+        as the next poll lands, which also happens to confirm HA-issued
+        commands almost immediately since the coordinator refreshes right
+        after sending one.
+        """
+        shutter = self.coordinator.data.get(self._shutter_id)
+        if shutter is not None:
+            state = shutter.get("movementState")
+            self._moving = state if state in ("opening", "closing") else None
         self.async_write_ha_state()
 
     async def async_open_cover(self, **kwargs: Any) -> None:
