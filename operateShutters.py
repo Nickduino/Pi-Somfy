@@ -584,7 +584,7 @@ class operateShutters(MyLog):
         # Enabled when RXGPIO is present in [General] — no new CLI flag.
         if not WINDOWS and self.config.RXGPIO is not None:
             from receiver import Receiver
-            self.receiver = Receiver(kwargs={'log':self.log, 'shutter': self.shutter, 'config': self.config})
+            self.receiver = Receiver(kwargs={'log':self.log, 'shutter': self.shutter, 'config': self.config, 'console': self.console})
 
         self.ProcessCommand(args);
 
