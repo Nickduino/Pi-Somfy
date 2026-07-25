@@ -626,6 +626,8 @@ var marker;
 var config;
 var modalCallerIconElement;
 var configShutter;
+var assignRemoteAddress;
+var unheardRemotesInterval = null;
 
 const buttonStop = 0x1;
 const buttonUp = 0x2;
@@ -661,6 +663,7 @@ function GetStartupInfo(initMap)
                config = result;
                setupTableShutters();
                setupTableSchedule();
+               setupTableRemotes();
                if (config.Longitude == 0) {
                    $('#collapseOne').collapse('show');
                } else if (Object.keys(config.Shutters).length == 0){
@@ -915,6 +918,32 @@ function deleteSchedule(id) {
                }, "json");
 }
 
+function assignRemote(address, shutterIds) {
+    var url = baseurl.concat("assignRemote");
+      $.post(  url,
+               {address: address, "shutterIds[]": shutterIds},
+               function(result, status){
+                   if ((status=="success") && (result.status == "OK")) {
+                      GetStartupInfo(false);
+                   } else {
+                      BootstrapDialog.show({type: BootstrapDialog.TYPE_DANGER, title: 'Error', message:'Received Error from Server: '+result.message, onhide: function(){GetStartupInfo(false);}});
+                   }
+               }, "json");
+}
+
+function unassignRemote(address) {
+    var url = baseurl.concat("unassignRemote");
+      $.post(  url,
+               {address: address},
+               function(result, status){
+                   if ((status=="success") && (result.status == "OK")) {
+                      GetStartupInfo(false);
+                   } else {
+                      BootstrapDialog.show({type: BootstrapDialog.TYPE_DANGER, title: 'Error', message:'Received Error from Server: '+result.message, onhide: function(){GetStartupInfo(false);}});
+                   }
+               }, "json");
+}
+
 
 
 function setupTableShutters () {
@@ -1059,6 +1088,61 @@ function setupTableSchedule () {
     $('.editbox.in').show();
 }
 
+function setupTableRemotes () {
+    $("#remotes").find("tr:gt(0)").remove();
+    var addresses = Object.keys(config.PhysicalRemotes);
+    addresses.sort().forEach(function(address) {
+        var shutterNames = config.PhysicalRemotes[address].map(function(shutterId) {
+            return config.Shutters[shutterId] || shutterId;
+        }).join(", ");
+        var row = '<tr name="'+address+'" rowtype="existing">' +
+                     '<td name="address">'+address+'</td>' +
+                     '<td name="shutters">'+shutterNames+'</td>' +
+                     '<td class="td-action">' + $("#action_remotes").html() + '</td>' +
+                  '</tr>';
+        $("#remotes").append(row);
+    });
+    $("#remotesCount").text($("#remotes").find('tr').length-1);
+    initTooltips();
+}
+
+// Polled only while the "Physical Remotes" section is expanded (started/
+// stopped by the shown.collapse/hidden.collapse handlers in setupListeners).
+function refreshUnheardRemotes() {
+    var url = baseurl.concat("getUnheardRemotes");
+    $.getJSON(url, {}, function(result, status){
+        if (!(status=="success") || result.status != "OK") { return; }
+        $("#unheardRemotes").find("tr:gt(0)").remove();
+        var pairedAddresses = Object.keys(config.PhysicalRemotes);
+        result.remotes.forEach(function(remote) {
+            if (pairedAddresses.includes(remote.address)) { return; } // paired since last poll
+            var row = '<tr name="'+remote.address+'" rowtype="existing">' +
+                         '<td name="address">'+remote.address+'</td>' +
+                         '<td name="button">'+remote.buttonName+'</td>' +
+                         '<td class="td-action">' + $("#action_unheard_remotes").html() + '</td>' +
+                      '</tr>';
+            $("#unheardRemotes").append(row);
+        });
+        initTooltips();
+    });
+}
+
+function openAssignRemoteModal(address, currentShutterIds) {
+    assignRemoteAddress = address;
+    $("#assign-remote-address").text(address);
+    var select = $("#assignRemoteShutters");
+    if (select.data('multiselect')) {
+        select.multiselect('destroy');
+    }
+    select.empty();
+    var shutterIds = Object.keys(config.Shutters);
+    shutterIds.sort(function(a, b) { return config.Shutters[a].toLowerCase() > config.Shutters[b].toLowerCase()}).forEach(function(shutterId) {
+        var selected = currentShutterIds.includes(shutterId) ? " selected" : "";
+        select.append('<option value="'+shutterId+'"'+selected+'>'+config.Shutters[shutterId]+'</option>');
+    });
+    select.multiselect({dropUp: true, maxHeight: 200, includeSelectAllOption: true, buttonWidth: '130px', nonSelectedText: 'None', allSelectedText: 'All', numberDisplayed: 1, nSelectedText: 'Selected', buttonClass: 'btn btn-secondary'});
+    $('#assign-remote').modal('show');
+}
 
 function clockDelayValUpdate(obj) {
    if ($(obj).val() !=  parseInt($(obj).val())){
@@ -1369,6 +1453,28 @@ function setupListeners() {
        $('#configure-shutter').modal('show');
     });
 
+    // Reassign an already-paired remote
+    $(document).on("click", ".editRemote", function(){
+       var address = $(this).parents("tr").attr('name');
+       openAssignRemoteModal(address, config.PhysicalRemotes[address] || []);
+    });
+
+    // Assign a remote heard under "Recently Heard"
+    $(document).on("click", ".assignRemoteBtn", function(){
+       var address = $(this).parents("tr").attr('name');
+       openAssignRemoteModal(address, []);
+    });
+
+    $('#assign-remote-save').on("click", function(){
+        var shutterIds = $("#assignRemoteShutters").val() || [];
+        if (shutterIds.length == 0) {
+            BootstrapDialog.show({type: BootstrapDialog.TYPE_DANGER, title: 'Error', message:'Select at least one shutter.'});
+            return;
+        }
+        assignRemote(assignRemoteAddress, shutterIds);
+        $('#assign-remote').modal('hide');
+    });
+
     // Edit row on edit button click
     $(document).on("click", ".editSchedule", function(){		
         $(this).parents("tr").find('.editbox').toggle();
@@ -1397,6 +1503,8 @@ function setupListeners() {
                  deleteShutter(rowId);
              } else if (tableId == "schedule") {
                  deleteSchedule(rowId);
+             } else if (tableId == "remotes") {
+                 unassignRemote(rowId);
              }
         }
         $('#confirm-delete').modal('hide');
@@ -1421,6 +1529,15 @@ function setupListeners() {
         } else {
             mymap.invalidateSize();
         }
+    })
+
+    $('#collapseFive').on('shown.collapse', function () {
+        refreshUnheardRemotes();
+        unheardRemotesInterval = setInterval(refreshUnheardRemotes, 3000);
+    })
+
+    $('#collapseFive').on('hidden.collapse', function () {
+        clearInterval(unheardRemotesInterval);
     })
 
     $('#program-new-shutter-ok').on("click", function(){

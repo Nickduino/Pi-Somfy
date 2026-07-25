@@ -321,16 +321,20 @@ claim what was heard":
     channels naturally become a multi-shutter tick, no new widget needed.
     Saving calls `POST /cmd/assignRemote`, which writes to `[PhysicalRemotes]`
     the same way `addShutter` writes to `[Shutters]`.
-  - Nice-to-have, not required for the MVP: each shutter row's existing
-    "Configure" wizard (wrench icon → the step-by-step modal that already has
-    Initial Setup / Adjust Limits / My Position accordion steps) gets one more
-    step, "Pair a Physical Remote to This Shutter", that deep-links to the
+  - Nice-to-have, not required for the MVP (still **not implemented** —
+    deferred past M2, see §11): each shutter row's existing "Configure"
+    wizard (wrench icon → the step-by-step modal that already has Initial
+    Setup / Adjust Limits / My Position accordion steps) gets one more step,
+    "Pair a Physical Remote to This Shutter", that deep-links to the
     Physical Remotes section with this shutter pre-ticked — convenient during
     initial motor setup, when the user is already in that wizard.
   - The pairing UI should also prompt for `[ShutterIntermediatePositions]`
     when it's unset for a shutter being paired (§5.2's mandatory-in-practice
     note) — natural to fold into the same "Assign" modal or the Configure
-    wizard's existing "My Position" step.
+    wizard's existing "My Position" step. Also **deferred past M2**.
+  - **Implemented in M2**: the paired-remotes table with unassign, the
+    "Recently Heard" list, and the Assign modal (reusing the existing
+    multi-select) exactly as designed above.
 
 ### 5.6 Position persistence across restarts
 
@@ -453,8 +457,8 @@ fighting the upstream fork relationship.
 | # | Deliverable | Depends on |
 |---|---|---|
 | M0 | ✅ **Done.** POC sniffer add-on (§7) + decoder unit tests. Loopback 100 %, real remote decoded. Noise/CPU soak (POC criteria 3–4) still worth running before M1 sign-off | CC1101 hardware |
-| M1 | `receiver.py`, `Shutter` `_simulate*` refactor, `[PhysicalRemotes]`, self-echo + de-dup filters, config-file pairing, position persistence (§5.6) — see §12 for how to structure this against the upstream fork | M0 |
-| M2 | Movement-state callback (§5.4), web UI learning section in the existing settings page (§5.5), README hardware chapter, add-on options (`rx_gpio_pin`, SPI pins) | M1 |
+| M1 | ✅ **Done.** `receiver.py`, `Shutter` `_simulate*` refactor, `[PhysicalRemotes]`, self-echo + de-dup filters, config-file pairing, position persistence (§5.6) — validated end-to-end on real hardware (CC1101 configures, real remote presses decode and dispatch correctly) | M0 |
+| M2 | ✅ **Done.** Movement-state callback (§5.4), web UI learning section in the existing settings page (§5.5), README hardware chapter (§2.1), add-on options (`rx_gpio_pin`, SPI pins) | M1 |
 | M3 | Nice-to-haves: HA event entities per physical remote (any RTS remote as automation trigger), long-press/tilt, Somfy sun/wind sensors (Soliris/Eolis speak RTS too) | M2 |
 
 ## 9 Testing
@@ -490,6 +494,9 @@ fighting the upstream fork relationship.
 
 ## 11 Future work
 
+- Configure-wizard deep-link into the Physical Remotes section, and
+  prompting for `[ShutterIntermediatePositions]` during pairing (§5.5
+  nice-to-haves, deferred past M2).
 - Use the CC1101 for TX as well (it is a transceiver): retires the
   soldered-resonator transmitter and the pigpio waveform path entirely.
 - Long-press detection (repeat count) → venetian tilt steps.
