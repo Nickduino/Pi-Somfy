@@ -144,7 +144,7 @@ class Shutter(MyLog):
         self.shutterStateList = {}
         self.shutterStateLock = threading.Lock()
 
-        # Seed persisted positions (receiver design §5.6): only for shutters
+        # Seed persisted positions, only for shutters
         # that both still exist in [Shutters] and have a settled position
         # recorded in [ShutterPositions], so getShutterState's lazy-init
         # fallback only ever applies to shutters that have never settled.
@@ -168,7 +168,7 @@ class Shutter(MyLog):
             state.position = newPosition
         # Every call site of setPosition() is already a "position settled"
         # moment (end of waitAndSetFinalPosition, stop()'s immediate branch,
-        # the partial-move completions) — receiver design §5.6.
+        # the partial-move completions).
         self.config.WriteValue(shutterId, str(newPosition), section="ShutterPositions")
         for function in self.callback:
             function(shutterId, newPosition)
@@ -250,9 +250,9 @@ class Shutter(MyLog):
 
     # Position-model update for a "stop"/"my" command, shared by the TX path
     # (stop(), above) and the physical-remote path (recordExternalCommand).
-    # Inherits the full MY-button ping-pong the motors implement (see
-    # documentation/Receiver Design.md §5.2) from the elapsed-time/fallback
-    # logic below — no special-casing needed for physical presses.
+    # Inherits the full MY-button ping-pong the motors implement from the
+    # elapsed-time/fallback logic below — no special-casing needed for
+    # physical presses.
     def _simulateStop(self, shutterId):
         state = self.getShutterState(shutterId, 50)
 
@@ -331,8 +331,8 @@ class Shutter(MyLog):
         self.callback.append(callbackFunction)
 
     # Update the position model for a button press heard from a physical RTS
-    # remote (documentation/Receiver Design.md §5.2) — dispatches to the same
-    # _simulate* methods the TX path uses, with no RF transmission.
+    # remote — dispatches to the same _simulate* methods the TX path uses,
+    # with no RF transmission.
     def recordExternalCommand(self, shutterId, button):
         name = self.config.Shutters[shutterId]['name']
         if button == self.buttonUp:
@@ -581,8 +581,7 @@ class operateShutters(MyLog):
             from mqtt import MQTT
             self.mqtt = MQTT(kwargs={'log':self.log, 'shutter': self.shutter, 'config': self.config})
 
-        # Enabled when RXGPIO is present in [General] — no new CLI flag
-        # (documentation/Receiver Design.md §5.1).
+        # Enabled when RXGPIO is present in [General] — no new CLI flag.
         if not WINDOWS and self.config.RXGPIO is not None:
             from receiver import Receiver
             self.receiver = Receiver(kwargs={'log':self.log, 'shutter': self.shutter, 'config': self.config})
@@ -624,8 +623,7 @@ class operateShutters(MyLog):
        # pigpio path for Pi 1/2/3/4
        # Deliberately not passing -m (disable alerts): -m silently prevents
        # pi.callback() from ever delivering edge notifications, which the
-       # receiver (Receiver, when config.RXGPIO is set) needs — found the
-       # hard way during the M0 receiver POC (documentation/Receiver Design.md §10).
+       # receiver (Receiver, when config.RXGPIO is set) needs.
        if sys.version_info[0] < 3:
            import commands
            status, process = commands.getstatusoutput('sudo pidof pigpiod')

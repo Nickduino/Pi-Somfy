@@ -1,16 +1,14 @@
 #!/usr/bin/python3
 # -*- coding: utf-8 -*-
 """Somfy RTS receiver — decodes physical remote presses and updates the
-Shutter position model (documentation/Receiver Design.md §5.1).
+Shutter position model.
 
-Ported from the M0 proof of concept (addons/rts_sniffer_poc/sniffer.py),
-validated on real hardware: CC1101 config, edge decoding and checksum all
-confirmed (100% loopback, real remote presses decode correctly). This module
-adapts that pipeline into a Pi-Somfy service thread with two additions the
-standalone POC didn't need: a TX-pause gate so the receiver never tries to
-decode our own transmissions, and a self-echo filter as a second line of
-defense. Known physical remotes are mapped to shutters via [PhysicalRemotes]
-in the config file (§5.3).
+Configures a CC1101 receiver module over bit-banged SPI for 433.42 MHz OOK
+reception, and decodes the RTS frame format (manchester-encoded, checksummed,
+obfuscated via a running XOR chain). Runs as a Pi-Somfy service thread with a
+TX-pause gate, so the receiver never tries to decode our own transmissions,
+and a self-echo filter as a second line of defense. Known physical remotes
+are mapped to shutters via [PhysicalRemotes] in the config file.
 """
 
 import collections
@@ -23,10 +21,9 @@ from config import MyLog
 
 # GPIO libraries are only needed on real hardware. Import lazily, and detect
 # the Pi model independently below, so the decoder classes stay unit-testable
-# on any dev machine — mirroring sniffer.py, which this module is ported
-# from. (operateShutters.py's own IS_PI5/LGPIO_CHIP aren't imported here on
-# purpose: that module hard-imports ephem/pigpio/lgpio at load time, which
-# would make `import receiver` fail on a plain dev machine.)
+# on any dev machine. (operateShutters.py's own IS_PI5/LGPIO_CHIP aren't
+# imported here on purpose: that module hard-imports ephem/pigpio/lgpio at
+# load time, which would make `import receiver` fail on a plain dev machine.)
 try:
     import pigpio
 except ImportError:
@@ -61,7 +58,7 @@ if sys.platform.startswith("linux"):
             pass
 
 
-# ── RTS protocol constants (must match Shutter.sendCommand exactly, §3) ─────
+# ── RTS protocol constants (must match Shutter.sendCommand exactly) ─────────
 WAKEUP_HIGH_US = 9415
 WAKEUP_LOW_US = 89565
 HW_SYNC_HALF_US = 2560     # one half of a hardware-sync pair
@@ -77,8 +74,8 @@ BUTTON_PROG = 0x8
 BUTTON_NAMES = {BUTTON_STOP: "MY/STOP", BUTTON_UP: "UP",
                 BUTTON_DOWN: "DOWN", BUTTON_PROG: "PROG"}
 
-# Bit-banged SPI defaults (design doc §5.3, matching the POC add-on's
-# defaults) — used when RXSpiSCK/MOSI/MISO/CSN aren't set in [General].
+# Bit-banged SPI GPIO defaults — used when RXSpiSCK/MOSI/MISO/CSN aren't set
+# in [General].
 DEFAULT_SPI_SCK = 21
 DEFAULT_SPI_MOSI = 20
 DEFAULT_SPI_MISO = 19
@@ -161,7 +158,7 @@ RTSFrame = collections.namedtuple("RTSFrame", "address button rolling_code key")
 
 class RTSDecoder(object):
     """RTS frame decoder: a pure state machine fed (level, timestamp_us) edge
-    events (design doc §5.1).
+    events.
 
     1. Hunt for >=2 hardware-sync pairs (2560 us +/-30 %).
     2. Software sync high (4550 us) flips to payload collection.
@@ -284,7 +281,7 @@ class RTSDecoder(object):
 class PressTracker(object):
     """Collapse the frame repeats of a single press into one press event.
 
-    (address, rollingCode) uniquely identifies one press (§3) and is
+    (address, rollingCode) uniquely identifies one press and is
     remembered with a TTL; on_press fires on the first frame, on_press_end
     fires with the final repeat count once the press goes quiet.
     """
@@ -338,7 +335,7 @@ class PressTracker(object):
             self.on_press_end(ended["frame"], ended["repeats"])
 
 
-# ── CC1101 configuration via bit-banged SPI (design doc §5.1, Appendix A) ───
+# ── CC1101 configuration via bit-banged SPI ──────────────────────────────────
 
 CC1101_SRES = 0x30
 CC1101_SRX = 0x34
@@ -477,7 +474,7 @@ class LgpioBitBangSpi(object):
 class CC1101(object):
     """One-time CC1101 setup: 433.42 MHz OOK receive, demodulated data on GDO0.
 
-    Init must prove the radio is really there and configured (§5.1): VERSION
+    Init must prove the radio is really there and configured: VERSION
     is read first, every register write is read back, and the receiver state
     is verified — any mismatch aborts startup loudly, because a mis-wired SPI
     otherwise degrades silently into a deaf receiver. `log` is a MyLog-style
@@ -610,7 +607,7 @@ class LgpioEdgeSource(object):
 
 class Receiver(threading.Thread, MyLog):
     """Service thread: listens for physical Somfy RTS remote presses and
-    updates Shutter's position model (documentation/Receiver Design.md §5.1).
+    updates Shutter's position model.
 
     Constructed and started the same way as Scheduler/MQTT (kwargs={'log',
     'shutter', 'config'}), gated on config.RXGPIO being set — no new CLI flag.
@@ -638,13 +635,13 @@ class Receiver(threading.Thread, MyLog):
         self._edge_source = None
         self._tx_gated = False
         # Presses from remotes not found in [PhysicalRemotes] — visible for
-        # future pairing UI (M2), v1 just logs them (§5.1).
+        # a future pairing UI — for now just logs them.
         self._unknown_remotes = collections.deque(maxlen=32)
 
         self._tracker = PressTracker(on_press=self._dispatch, on_press_end=self._on_press_end)
         self._decoder = RTSDecoder(on_frame=self._on_frame)
 
-    # -- hardware bring-up (Sniffer.start(), adapted) -------------------------
+    # -- hardware bring-up -----------------------------------------------------
     def _start_hardware(self):
         rx_gpio = self.config.RXGPIO
         spi_sck = self.config.RXSpiSCK if self.config.RXSpiSCK is not None else DEFAULT_SPI_SCK
@@ -698,9 +695,9 @@ class Receiver(threading.Thread, MyLog):
 
     # -- edge / frame / press pipeline -----------------------------------------
     # Sits between the edge source and the decoder: drop edges while our own
-    # TX path is transmitting, and resync the decoder once TX ends (design
-    # doc §10 — found during M0 that a receiver left running during TX
-    # otherwise decodes noise/reflections of our own frame).
+    # TX path is transmitting, and resync the decoder once TX ends — found
+    # during earlier testing that a receiver left running during TX otherwise decodes
+    # noise/reflections of our own frame.
     def _on_edge(self, level, ts_us):
         if self.shutter.transmitting.is_set():
             self._tx_gated = True
