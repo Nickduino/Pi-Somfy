@@ -14,6 +14,7 @@ buttons.
 import logging
 import random
 import threading
+import time
 import unittest
 
 from receiver import (BUTTON_DOWN, BUTTON_PROG, BUTTON_STOP, BUTTON_UP,
@@ -412,6 +413,97 @@ class SimulationEquivalenceTests(unittest.TestCase):
         shutter._simulateStop = lambda shutterId: calls.append(shutterId)
         shutter.recordExternalCommand("0x02aaaa", Shutter.buttonStop)
         self.assertEqual(calls, ["0x02aaaa"])
+
+
+@unittest.skipUnless(_HAVE_SHUTTER, "operateShutters and its dependencies "
+                     "(ephem, pigpio/lgpio, Flask, paho-mqtt) are required "
+                     "to test Shutter directly")
+class MovementCallbackTests(unittest.TestCase):
+    """registerMovementCallBack fires 'opening'/'closing'/'stopped' for both
+    the TX/software path and the physical-remote path identically (M2 §5.4)."""
+
+    class _FakeConfig(object):
+        def __init__(self, shutters):
+            self.TXGPIO = None
+            self.ShutterPositions = {}
+            self.Shutters = shutters
+            self.SendRepeat = 1
+
+        def WriteValue(self, entry, value, section=None):
+            pass
+
+    def _make_shutter(self, duration=20, intermediatePosition=None):
+        shutters = {"0x02aaaa": {"name": "test", "durationDown": duration,
+                                 "durationUp": duration,
+                                 "intermediatePosition": intermediatePosition}}
+        shutter = Shutter(log=LOG, config=self._FakeConfig(shutters))
+        shutter.sendCommand = lambda *a, **kw: None   # never touch real hardware
+        self.events = []
+        shutter.registerMovementCallBack(
+            lambda shutterId, state: self.events.append(("movement", state)))
+        shutter.registerCallBack(
+            lambda shutterId, position: self.events.append(("position", position)))
+        return shutter
+
+    def movements(self):
+        return [e[1] for e in self.events if e[0] == "movement"]
+
+    def test_simulate_up_fires_opening_immediately(self):
+        shutter = self._make_shutter()
+        shutter._simulateUp("0x02aaaa")
+        self.assertEqual(self.movements(), ["opening"])
+
+    def test_simulate_down_fires_closing_immediately(self):
+        shutter = self._make_shutter()
+        shutter._simulateDown("0x02aaaa")
+        self.assertEqual(self.movements(), ["closing"])
+
+    def test_simulate_stop_normal_fires_stopped_before_position_settles(self):
+        shutter = self._make_shutter(duration=100)
+        state = shutter.getShutterState("0x02aaaa", 50)
+        state.registerCommand('up')
+        state.lastCommandTime = time.monotonic() - 1.0   # ~1s into a 100s travel
+        shutter._simulateStop("0x02aaaa")
+        self.assertEqual(self.movements(), ["stopped"])
+        # The movement event must precede the position-settle event, so a
+        # more-precise open/closed publish (from the position callback)
+        # always has the last word on the retained MQTT topic.
+        self.assertEqual([e[0] for e in self.events], ["movement", "position"])
+
+    def test_simulate_stop_intermediate_fallback_fires_closing_not_stopped(self):
+        # position (80) above the stored MY position (30): motor moves down.
+        shutter = self._make_shutter(duration=20, intermediatePosition=30)
+        shutter.getShutterState("0x02aaaa", 80)
+        shutter._simulateStop("0x02aaaa")
+        self.assertEqual(self.movements(), ["closing"])
+
+    def test_simulate_stop_intermediate_fallback_fires_opening_not_stopped(self):
+        # position (30) below the stored MY position (80): motor moves up.
+        shutter = self._make_shutter(duration=20, intermediatePosition=80)
+        shutter.getShutterState("0x02aaaa", 30)
+        shutter._simulateStop("0x02aaaa")
+        self.assertEqual(self.movements(), ["opening"])
+
+    def test_simulate_stop_stationary_fallback_fires_stopped(self):
+        shutter = self._make_shutter(duration=20, intermediatePosition=None)
+        shutter.getShutterState("0x02aaaa", 50)
+        shutter._simulateStop("0x02aaaa")
+        self.assertEqual(self.movements(), ["stopped"])
+
+    def test_rise_partial_fires_opening_then_stopped(self):
+        shutter = self._make_shutter(duration=0)
+        shutter.risePartial("0x02aaaa", 80)
+        self.assertEqual(self.movements(), ["opening", "stopped"])
+
+    def test_lower_partial_fires_closing_then_stopped(self):
+        shutter = self._make_shutter(duration=0)
+        shutter.lowerPartial("0x02aaaa", 20)
+        self.assertEqual(self.movements(), ["closing", "stopped"])
+
+    def test_record_external_command_up_fires_same_event_as_simulate_up(self):
+        shutter = self._make_shutter()
+        shutter.recordExternalCommand("0x02aaaa", Shutter.buttonUp)
+        self.assertEqual(self.movements(), ["opening"])
 
 
 if __name__ == "__main__":

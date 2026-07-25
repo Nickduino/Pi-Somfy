@@ -141,6 +141,7 @@ class Shutter(MyLog):
            self.TXGPIO=4 # 433.42 MHz emitter on GPIO 4
         self.frame = bytearray(7)
         self.callback = []
+        self.movementCallback = []
         self.shutterStateList = {}
         self.shutterStateLock = threading.Lock()
 
@@ -197,6 +198,7 @@ class Shutter(MyLog):
     def _simulateDown(self, shutterId):
         state = self.getShutterState(shutterId, 100)
         state.registerCommand('down')
+        self._fireMovement(shutterId, 'closing')
 
         # wait and set final position only if not interrupted in between
         timeToWait = state.position/100*self.config.Shutters[shutterId]['durationDown']
@@ -209,10 +211,12 @@ class Shutter(MyLog):
         self.LogInfo("["+self.config.Shutters[shutterId]['name']+"] Going down") 
         self.sendCommand(shutterId, self.buttonDown, self.config.SendRepeat)
         state.registerCommand('down')
+        self._fireMovement(shutterId, 'closing')
         time.sleep((state.position-percentage)/100*self.config.Shutters[shutterId]['durationDown'])
         self.LogInfo("["+self.config.Shutters[shutterId]['name']+"] Stop at partial position requested")
         self.sendCommand(shutterId, self.buttonStop, self.config.SendRepeat)
 
+        self._fireMovement(shutterId, 'stopped')
         self.setPosition(shutterId, percentage)
 
     def rise(self, shutterId):
@@ -225,6 +229,7 @@ class Shutter(MyLog):
     def _simulateUp(self, shutterId):
         state = self.getShutterState(shutterId, 0)
         state.registerCommand('up')
+        self._fireMovement(shutterId, 'opening')
 
         # wait and set final position only if not interrupted in between
         timeToWait = (100-state.position)/100*self.config.Shutters[shutterId]['durationUp']
@@ -237,10 +242,12 @@ class Shutter(MyLog):
         self.LogInfo("["+self.config.Shutters[shutterId]['name']+"] Going up")
         self.sendCommand(shutterId, self.buttonUp, self.config.SendRepeat)
         state.registerCommand('up')
+        self._fireMovement(shutterId, 'opening')
         time.sleep((percentage-state.position)/100*self.config.Shutters[shutterId]['durationUp'])
         self.LogInfo("["+self.config.Shutters[shutterId]['name']+"] Stop at partial position requested")
         self.sendCommand(shutterId, self.buttonStop, self.config.SendRepeat)
 
+        self._fireMovement(shutterId, 'stopped')
         self.setPosition(shutterId, percentage)
 
     def stop(self, shutterId):
@@ -305,14 +312,24 @@ class Shutter(MyLog):
                 self.LogInfo("["+shutterId+"] Motor expected to move to intermediate position "+str(intermediatePosition))
                 if state.position > intermediatePosition:
                     state.registerCommand('down')
+                    self._fireMovement(shutterId, 'closing')
                     timeToWait = abs(state.position - intermediatePosition) / 100*self.config.Shutters[shutterId]['durationDown']
                 else:
                     state.registerCommand('up')
+                    self._fireMovement(shutterId, 'opening')
                     timeToWait = abs(state.position - intermediatePosition) / 100*self.config.Shutters[shutterId]['durationUp']
                 # wait and set final intermediate position only if not interrupted in between
                 t = threading.Thread(target = self.waitAndSetFinalPosition, args = (shutterId, timeToWait, intermediatePosition))
                 t.start()
-                return
+                return   # genuinely moving again — not a stop; the settled state
+                         # reports via setPosition()'s existing position callback
+                         # when the thread completes, same as rise()/lower().
+
+        # Fire the movement event before setPosition(): if the computed position
+        # lands exactly on 0/100, setPosition()'s existing position callback
+        # publishes the more precise open/closed state, and should have the
+        # last word on the retained MQTT topic, not this 'stopped' event.
+        self._fireMovement(shutterId, 'stopped')
 
         # Save computed position
         self.setPosition(shutterId, newPosition)
@@ -329,6 +346,18 @@ class Shutter(MyLog):
 
     def registerCallBack(self, callbackFunction):
         self.callback.append(callbackFunction)
+
+    # Register for transient movement-state notifications ('opening'/
+    # 'closing'/'stopped'), fired identically for the TX/software path and
+    # the physical-remote path — complements registerCallBack's position-
+    # based open/closed/stopped signal with the "movement in progress"
+    # state nothing else reports today.
+    def registerMovementCallBack(self, callbackFunction):
+        self.movementCallback.append(callbackFunction)
+
+    def _fireMovement(self, shutterId, movementState):
+        for function in self.movementCallback:
+            function(shutterId, movementState)
 
     # Update the position model for a button press heard from a physical RTS
     # remote — dispatches to the same _simulate* methods the TX path uses,
@@ -737,7 +766,7 @@ class operateShutters(MyLog):
              if self.receiver is not None:
                  self.receiver.daemon = True
                  self.receiver.start()
-             self.webServer = FlaskAppWrapper(name='WebServer', static_url_path=os.path.dirname(os.path.realpath(__file__))+'/html', log = self.log, shutter = self.shutter, schedule = self.schedule, config = self.config)
+             self.webServer = FlaskAppWrapper(name='WebServer', static_url_path=os.path.dirname(os.path.realpath(__file__))+'/html', log = self.log, shutter = self.shutter, schedule = self.schedule, config = self.config, receiver = self.receiver)
              self.webServer.run()
        else:
           parser.print_help()

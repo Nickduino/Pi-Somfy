@@ -38,6 +38,43 @@ OK. now this all should look like this. Note that some of the pictures are a bit
 ![Pi Connection](documentation/Connection.jpg)<br/>
 ![RF Transmitter Connection](documentation/Sender.jpg)<br/>
 
+### 2.1 Receiver (optional) — tracking physical remotes
+
+Everything above covers sending commands. Optionally, Pi-Somfy can also
+*listen* for presses on your existing physical Somfy remotes, so pressing
+one keeps the app's tracked shutter position in sync — see
+`documentation/Receiver Design.md` for the full design.
+
+This needs a second, separate piece of hardware: a CC1101 transceiver
+module (~$3) tuned in software to exactly 433.42 MHz. SPI is bit-banged on
+ordinary GPIOs and only used once at startup, so no host `config.txt`
+changes or reboots are needed. Match module pins by silkscreen **label**,
+not position (MOSI may be printed `SI`, MISO `SO`):
+
+| CC1101 pin | Signal | Default GPIO | Physical pin (Pi 4) |
+|---|---|---|---|
+| VCC | 3.3 V supply | — | 17 (or 1) — **never 5 V** |
+| GND | ground | — | 39 |
+| SCK | SPI clock | GPIO 21 | 40 |
+| MOSI (SI) | SPI data → radio | GPIO 20 | 38 |
+| MISO (SO) | SPI data → Pi | GPIO 19 | 35 |
+| CSN | chip select | GPIO 16 | 36 |
+| GDO0 | demodulated data out | GPIO 26 | 37 |
+| GDO2 | — | not connected | — |
+| ANT | antenna | — | 17 cm solid-core wire, **required** |
+
+To enable it, set `RXGPIO` (and, if wired to non-default pins,
+`RXSpiSCK`/`RXSpiMOSI`/`RXSpiMISO`/`RXSpiCSN`) in `operateShutters.conf`'s
+`[General]` section — leave `RXGPIO` unset/commented out to run without a
+receiver, exactly as before. If you're running the Home Assistant add-on,
+the same options are exposed directly in its configuration page as
+`rx_gpio_pin`/`spi_sck`/`spi_mosi`/`spi_miso`/`spi_csn`.
+
+Once enabled, pair a physical remote to a shutter from the web UI's
+"Physical Remotes" section (see §5 below): press a button on the remote,
+find it listed under "Recently Heard", and assign it to one or more
+shutters.
+
 ## 3 Software
 
 If you are new to using a Raspberry Pi and Linux please refer to other sources for coming up to speed with the environment. Having a base knowledge will go a long way. This [site](https://www.raspberrypi.org/help/) is a great place to start if you are new to these topics.
@@ -205,6 +242,8 @@ Click the "Add" button, select the name for your shutter (this is also the name 
 1. Next, make sure your shutters work. The easiest way to verify is to use the "Manual Operations" menu. <br/>![Screenshot](documentation/p2.png)<br/> You can raise and lower your shutters by clicking on the relevant icons.
 
 1. Finally, it's time to program your shutters schedule. To do so, use the "Scheduled Operations" menu. <br/>![Screenshot](documentation/p3.png)<br/>
+
+1. If you've wired up the optional CC1101 receiver (§2.1), pair your physical remotes using the "Physical Remotes" menu. Press a button on the remote, find it listed under "Recently Heard", click the assign icon, and pick which shutter(s) it should control.
 
 
 ## 6 Alexa Integration

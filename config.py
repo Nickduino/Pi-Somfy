@@ -341,7 +341,14 @@ class MyConfig (MyLog):
                             last_data_line = i
 
                 if not in_target_section:
-                    raise Exception("NOT ABLE TO FIND SECTION:" + sect)
+                    # Auto-create the missing section rather than failing:
+                    # fresh installs get every section from defaultConfig.conf,
+                    # but a pre-M1 config file being upgraded in place may be
+                    # missing newer sections (e.g. [PhysicalRemotes],
+                    # [ShutterPositions]) entirely.
+                    lines.append("")
+                    lines.append("[" + sect + "]")
+                    section_header_line = len(lines) - 1
 
                 if key_line >= 0:
                     # Replace existing key
@@ -372,4 +379,71 @@ class MyConfig (MyLog):
 
         except Exception as e1:
             self.LogError("Error in WriteValue: " + str(e1))
+            return False
+
+    #---------------------MyConfig::RemoveValue----------------------------------
+    # Deletes a single key from a section — WriteValue can only replace/insert
+    # a key, never remove one, which a real "unassign" (e.g. [PhysicalRemotes])
+    # needs, unlike [Shutters]'s soft-delete-via-flag convention which doesn't
+    # fit a plain "key = value" row shape. Mirrors WriteValue's exact
+    # scan-then-atomic-rewrite pattern. Idempotent: removing an already-absent
+    # key (or a section that doesn't exist at all) is not an error.
+    def RemoveValue(self, Entry, section = None):
+
+        sect = section if section is not None else self.Section
+
+        try:
+            with self.CriticalLock:
+                with open(self.FileName, 'r') as f:
+                    lines = f.read().splitlines()
+
+                in_target_section = False
+                key_line = -1
+
+                for i, line in enumerate(lines):
+                    m_sect = self._RE_SECTION.match(line)
+                    if m_sect:
+                        if in_target_section:
+                            break  # reached next section, stop
+                        if m_sect.group(1).strip().lower() == sect.lower():
+                            in_target_section = True
+                        continue
+
+                    if in_target_section:
+                        m_kv = self._RE_KEY_VALUE.match(line)
+                        if m_kv and m_kv.group(2).strip() == Entry:
+                            key_line = i
+                            break
+
+                if not in_target_section or key_line < 0:
+                    return True  # nothing to remove — idempotent, not an error
+
+                del lines[key_line]
+                content = "\n".join(lines) + "\n"
+
+                # Atomic write: write to temp file, then replace
+                tmp = self.FileName + ".tmp"
+                with open(tmp, 'w') as f:
+                    f.write(content)
+                    f.flush()
+                    os.fsync(f.fileno())
+                if sys.version_info[0] >= 3:
+                    os.replace(tmp, self.FileName)
+                else:
+                    if os.path.exists(self.FileName):
+                        os.remove(self.FileName)
+                    os.rename(tmp, self.FileName)
+
+                # RawConfigParser.read() only merges in additions/updates, it
+                # never drops an option that disappeared from the file — the
+                # removed key would otherwise stay stale in the cached view.
+                try:
+                    self.config.remove_option(sect, Entry)
+                except Exception:
+                    pass
+                self.config.read(self.FileName)
+            return True
+
+        except Exception as e1:
+            self.LogError("Error in RemoveValue: " + str(e1))
             return False
