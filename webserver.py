@@ -60,7 +60,7 @@ class FlaskAppWrapper(MyLog):
     def processCommand(self, command):
         self.LogDebug(request.url + " ( "+ request.method + " ): command=" + command)
         try:
-            if command in ["up", "down", "stop", "program", "press", "getConfig", "getStatus", "setPosition", "addSchedule", "editSchedule", "deleteSchedule", "addShutter", "editShutter", "deleteShutter", "setLocation", "getUnheardRemotes", "assignRemote", "unassignRemote" ]:
+            if command in ["up", "down", "stop", "program", "press", "getConfig", "getStatus", "setPosition", "addSchedule", "editSchedule", "deleteSchedule", "addShutter", "editShutter", "deleteShutter", "setLocation", "getUnheardRemotes", "assignRemote", "unassignRemote", "setIntermediatePosition" ]:
                 self.LogInfo("processing Command \"" + command + "\" with parameters: "+str(request.values))
                 result = getattr(self, command)(request.values)
                 return Response(json.dumps(result), status=200)
@@ -238,12 +238,14 @@ class FlaskAppWrapper(MyLog):
         durations = {}
         movementStates = {}
         positions = {}
+        intermediatePositions = {}
         for k in self.config.Shutters:
             shutters[k] = self.config.Shutters[k]['name']
             durations[k] = self.config.Shutters[k]['durationDown']
             movementStates[k] = self.shutter.getMovementState(k)
-            positions[k] = self.shutter.getPosition(k)
-        obj = {'Latitude': self.config.Latitude, 'Longitude': self.config.Longitude, 'Shutters': shutters, 'ShutterDurations': durations, 'Schedule': self.schedule.getScheduleAsDict(), 'PhysicalRemotes': self.config.PhysicalRemotes, 'MovementStates': movementStates, 'Positions': positions}
+            positions[k] = self.shutter.getDisplayPosition(k)
+            intermediatePositions[k] = self.config.Shutters[k]['intermediatePosition']
+        obj = {'Latitude': self.config.Latitude, 'Longitude': self.config.Longitude, 'Shutters': shutters, 'ShutterDurations': durations, 'Schedule': self.schedule.getScheduleAsDict(), 'PhysicalRemotes': self.config.PhysicalRemotes, 'MovementStates': movementStates, 'Positions': positions, 'ShutterIntermediatePositions': intermediatePositions}
         self.LogDebug("getConfig called, sending: "+json.dumps(obj))
         return obj
 
@@ -285,6 +287,26 @@ class FlaskAppWrapper(MyLog):
         del self.config.PhysicalRemotes[address]
         return {'status': 'OK'}
 
+    def setIntermediatePosition(self, params):
+        if not self.validatePassword():
+            return {'status': 'ERROR'}
+        shutter = params.get('shutter', 0, type=str)
+        if shutter not in self.config.Shutters:
+            return {'status': 'ERROR', 'message': 'Shutter does not exist'}
+        raw = params.get('position', 0, type=str).strip()
+        if raw == "":
+            position = None
+        else:
+            try:
+                position = int(raw)
+            except ValueError:
+                return {'status': 'ERROR', 'message': 'Position must be a whole number between 0 and 100'}
+            if position < 0 or position > 100:
+                return {'status': 'ERROR', 'message': 'Position must be between 0 and 100'}
+        self.config.WriteValue(shutter, str(position), section="ShutterIntermediatePositions")
+        self.config.Shutters[shutter]['intermediatePosition'] = position
+        return {'status': 'OK', 'intermediatePosition': position}
+
     def getStatus(self, params):
         if not self.validatePassword():
             return {'status': 'ERROR'}
@@ -292,7 +314,7 @@ class FlaskAppWrapper(MyLog):
         for k in self.config.Shutters:
             shutters[k] = {
                 'name': self.config.Shutters[k]['name'],
-                'position': self.shutter.getPosition(k),
+                'position': self.shutter.getDisplayPosition(k),
                 'durationUp': self.config.Shutters[k]['durationUp'],
                 'durationDown': self.config.Shutters[k]['durationDown'],
                 'movementState': self.shutter.getMovementState(k)

@@ -416,6 +416,12 @@
                                             </li>
                                             <li>Hint: You can return to the My position by pressing the Stop button when the shutter is not in motion.
                                             </li>
+                                            <li class="mt-2">Tell Pi-Somfy what position that was, so its own tracking matches the shutter's real stored My position:
+                                                <div class="input-group mt-1" style="max-width: 320px;">
+                                                    <input type="number" id="intermediatePositionInput" class="form-control" min="0" max="100" placeholder="0-100, e.g. 40">
+                                                    <button type="button" class="btn btn-primary" id="save-intermediate-position">Save</button>
+                                                </div>
+                                            </li>
                                         </ol>
                                     </div>
                                 </div>
@@ -429,9 +435,11 @@
                                 <div id="configClearMy" class="accordion-collapse collapse" data-parent="#configAccordion">
                                     <div class="accordion-body">
                                         <ol>
-                                            <li>Move the shutter to the My position: <button type="button" class="btn press-button-stop-short"><span class="icon" data-icon="bullseye"></span></button>. 
+                                            <li>Move the shutter to the My position: <button type="button" class="btn press-button-stop-short"><span class="icon" data-icon="bullseye"></span></button>.
                                             </li>
                                             <li>Press <button type="button" class="btn press-button-stop-long"><span class="icon" data-icon="floppy"></span></button> to clear the My position.
+                                            </li>
+                                            <li class="mt-2">Also clear it in Pi-Somfy's own tracking: <button type="button" class="btn" id="clear-intermediate-position"><span class="icon" data-icon="x-circle"></span></button>
                                             </li>
                                         </ol>
                                     </div>

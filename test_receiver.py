@@ -475,6 +475,8 @@ class MovementCallbackTests(unittest.TestCase):
         shutter = self._make_shutter(duration=100)
         state = shutter.getShutterState("0x02aaaa", 50)
         state.registerCommand('up')
+        shutter._fireMovement("0x02aaaa", 'opening')   # mark as genuinely moving
+        self.events = []   # discard the setup event above; assert only on _simulateStop's own effects
         state.lastCommandTime = time.monotonic() - 1.0   # ~1s into a 100s travel
         shutter._simulateStop("0x02aaaa")
         self.assertEqual(self.movements(), ["stopped"])
@@ -502,6 +504,34 @@ class MovementCallbackTests(unittest.TestCase):
         shutter.getShutterState("0x02aaaa", 50)
         shutter._simulateStop("0x02aaaa")
         self.assertEqual(self.movements(), ["stopped"])
+
+    def test_stop_after_settled_partial_move_goes_to_my_position(self):
+        # Regression: _simulateStop used to infer "still moving" from
+        # elapsed-time-since-last-command vs. the shutter's FULL duration —
+        # which wrongly matched here, since a partial move settles in far
+        # less time than the full duration. A MY press shortly afterward
+        # must correctly see the shutter as already stopped and evaluate
+        # the MY-position fallback, not compute a bogus interrupted-move
+        # position as if it were still rising.
+        shutter = self._make_shutter(duration=20, intermediatePosition=45)
+        # Drive the same state transitions risePartial(shutterId, 60) would
+        # (registerCommand -> 'opening' -> 'stopped' + setPosition), without
+        # its real time.sleep(...) — risePartial blocks synchronously for the
+        # move's duration, unlike _simulateUp/_simulateDown which settle on a
+        # background thread, so calling it here would make this test take
+        # (60/100)*20s = 12 real seconds.
+        state = shutter.getShutterState("0x02aaaa", 0)
+        state.registerCommand('up')
+        shutter._fireMovement("0x02aaaa", 'opening')
+        shutter._fireMovement("0x02aaaa", 'stopped')
+        shutter.setPosition("0x02aaaa", 60)
+        self.assertEqual(shutter.getPosition("0x02aaaa"), 60)
+        self.events = []
+        shutter._simulateStop("0x02aaaa")
+        # 60 -> intermediatePosition 45 is a move down (closing), not the
+        # bogus "still opening" interpolation the old elapsed-time
+        # heuristic would have produced.
+        self.assertEqual(self.movements(), ["closing"])
 
     def test_rise_partial_fires_opening_then_stopped(self):
         shutter = self._make_shutter(duration=0)
@@ -531,6 +561,56 @@ class MovementCallbackTests(unittest.TestCase):
                 break
             time.sleep(0.02)
         self.assertEqual(self.movements(), ["opening", "stopped"])
+
+    def test_display_position_equals_settled_position_when_stationary(self):
+        shutter = self._make_shutter()
+        shutter.getShutterState("0x02aaaa", 42)
+        self.assertEqual(shutter.getDisplayPosition("0x02aaaa"), 42)
+
+    def test_display_position_interpolates_while_opening(self):
+        shutter = self._make_shutter(duration=100)
+        state = shutter.getShutterState("0x02aaaa", 0)
+        state.registerCommand('up')
+        shutter._fireMovement("0x02aaaa", 'opening')
+        state.lastCommandTime = time.monotonic() - 25.0   # 25% into a 100s move
+        self.assertEqual(shutter.getDisplayPosition("0x02aaaa"), 25)
+
+    def test_display_position_interpolates_while_closing(self):
+        shutter = self._make_shutter(duration=100)
+        state = shutter.getShutterState("0x02aaaa", 100)
+        state.registerCommand('down')
+        shutter._fireMovement("0x02aaaa", 'closing')
+        state.lastCommandTime = time.monotonic() - 30.0   # 30% into a 100s move
+        self.assertEqual(shutter.getDisplayPosition("0x02aaaa"), 70)
+
+    def test_display_position_reports_target_once_elapsed_exceeds_duration(self):
+        # Right before waitAndSetFinalPosition's background thread actually
+        # settles (a real race window), a poll should report the target
+        # (100/0), not the stale pre-move position.
+        shutter = self._make_shutter(duration=10)
+        state = shutter.getShutterState("0x02aaaa", 0)
+        state.registerCommand('up')
+        shutter._fireMovement("0x02aaaa", 'opening')
+        state.lastCommandTime = time.monotonic() - 15.0   # already past the 10s duration
+        self.assertEqual(shutter.getDisplayPosition("0x02aaaa"), 100)
+
+    def test_display_position_interpolates_during_my_position_fallback_move(self):
+        # STOP/MY pressed while stationary and away from the stored MY
+        # position (the bug report this is fixing): the motor moves toward
+        # intermediatePosition, and getDisplayPosition should track it live,
+        # not just show the stale starting position until it settles.
+        shutter = self._make_shutter(duration=20, intermediatePosition=30)
+        shutter.getShutterState("0x02aaaa", 80)   # above the MY position -> closing
+        shutter._simulateStop("0x02aaaa")
+        self.assertEqual(self.movements(), ["closing"])
+        state = shutter.getShutterState("0x02aaaa")
+        # 5s at the configured 100/20=5%/s rate -> 25 points off 80, landing
+        # mid-travel toward (not yet at) the 30 target — this move's actual
+        # full duration (per _simulateStop's own math) is 10s (50 points at
+        # 5%/s), so 5s in is genuinely halfway there, not coincidentally at
+        # the destination.
+        state.lastCommandTime = time.monotonic() - 5.0
+        self.assertEqual(shutter.getDisplayPosition("0x02aaaa"), 55)
 
 
 if __name__ == "__main__":
