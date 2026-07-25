@@ -236,10 +236,14 @@ class FlaskAppWrapper(MyLog):
     def getConfig(self, params):
         shutters = {}
         durations = {}
+        movementStates = {}
+        positions = {}
         for k in self.config.Shutters:
             shutters[k] = self.config.Shutters[k]['name']
             durations[k] = self.config.Shutters[k]['durationDown']
-        obj = {'Latitude': self.config.Latitude, 'Longitude': self.config.Longitude, 'Shutters': shutters, 'ShutterDurations': durations, 'Schedule': self.schedule.getScheduleAsDict(), 'PhysicalRemotes': self.config.PhysicalRemotes}
+            movementStates[k] = self.shutter.getMovementState(k)
+            positions[k] = self.shutter.getPosition(k)
+        obj = {'Latitude': self.config.Latitude, 'Longitude': self.config.Longitude, 'Shutters': shutters, 'ShutterDurations': durations, 'Schedule': self.schedule.getScheduleAsDict(), 'PhysicalRemotes': self.config.PhysicalRemotes, 'MovementStates': movementStates, 'Positions': positions}
         self.LogDebug("getConfig called, sending: "+json.dumps(obj))
         return obj
 
