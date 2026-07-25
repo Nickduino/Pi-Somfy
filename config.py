@@ -132,6 +132,16 @@ class MyConfig (MyLog):
         self.ShuttersByName = {}
         self.Schedule = {}
         self.Password = ""
+        self.PhysicalRemotes = {}
+        self.ShutterPositions = {}
+        # Optional (unlike TXGPIO, not guaranteed present in defaultConfig.conf)
+        # — must default to None so `is not None` checks don't raise
+        # AttributeError on a config file that omits them.
+        self.RXGPIO = None
+        self.RXSpiSCK = None
+        self.RXSpiMOSI = None
+        self.RXSpiMISO = None
+        self.RXSpiCSN = None
 
         try:
             self.config = RawConfigParser(strict=False)
@@ -150,7 +160,8 @@ class MyConfig (MyLog):
     # -------------------- MyConfig::LoadConfig-----------------------------------
     def LoadConfig(self):
 
-        parameters = {'LogLocation': str, 'Latitude': float, 'Longitude': float, 'SendRepeat': int, 'UseHttps': bool, 'HTTPPort': int, 'HTTPSPort': int, 'TXGPIO': int, 'RTS_Address': str, "Password": str}
+        parameters = {'LogLocation': str, 'Latitude': float, 'Longitude': float, 'SendRepeat': int, 'UseHttps': bool, 'HTTPPort': int, 'HTTPSPort': int, 'TXGPIO': int, 'RTS_Address': str, "Password": str,
+                      'RXGPIO': int, 'RXSpiSCK': int, 'RXSpiMOSI': int, 'RXSpiMISO': int, 'RXSpiCSN': int}
         
         for key, type in parameters.items():
             try:
@@ -201,7 +212,23 @@ class MyConfig (MyLog):
             except Exception as e1:
                 self.LogErrorLine("Missing config file or config file entries in Section Scheduler for key "+key+": " + str(e1))
                 return False
-                                   
+
+        remotes = self.GetList(section="PhysicalRemotes")
+        for key, value in remotes:
+            try:
+                self.PhysicalRemotes[key] = [s.strip() for s in value.split(",")]
+            except Exception as e1:
+                self.LogErrorLine("Missing config file or config file entries in Section PhysicalRemotes for key "+key+": " + str(e1))
+                return False
+
+        positions = self.GetList(section="ShutterPositions")
+        for key, value in positions:
+            try:
+                self.ShutterPositions[key] = int(value)
+            except Exception as e1:
+                self.LogErrorLine("Missing config file or config file entries in Section ShutterPositions for key "+key+": " + str(e1))
+                return False
+
         return True
 
     #---------------------MyConfig::setLocation---------------------------------
