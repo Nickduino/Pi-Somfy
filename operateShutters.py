@@ -129,6 +129,7 @@ class Shutter(MyLog):
     def __init__(self, log = None, config = None):
         super(Shutter, self).__init__()
         self.lock = threading.Lock()
+        self.transmitting = threading.Event()
         if log is not None:
             self.log = log
         if config is not None:
@@ -142,6 +143,14 @@ class Shutter(MyLog):
         self.callback = []
         self.shutterStateList = {}
         self.shutterStateLock = threading.Lock()
+
+        # Seed persisted positions (receiver design §5.6): only for shutters
+        # that both still exist in [Shutters] and have a settled position
+        # recorded in [ShutterPositions], so getShutterState's lazy-init
+        # fallback only ever applies to shutters that have never settled.
+        for shutterId, position in self.config.ShutterPositions.items():
+            if shutterId in self.config.Shutters:
+                self.shutterStateList[shutterId] = self.ShutterState(position)
 
     def getShutterState(self, shutterId, initialPosition = None):
         with self.shutterStateLock:
@@ -157,6 +166,10 @@ class Shutter(MyLog):
         state = self.getShutterState(shutterId)
         with self.shutterStateLock:
             state.position = newPosition
+        # Every call site of setPosition() is already a "position settled"
+        # moment (end of waitAndSetFinalPosition, stop()'s immediate branch,
+        # the partial-move completions) — receiver design §5.6.
+        self.config.WriteValue(shutterId, str(newPosition), section="ShutterPositions")
         for function in self.callback:
             function(shutterId, newPosition)
 
@@ -175,10 +188,14 @@ class Shutter(MyLog):
             self.LogDebug("["+self.config.Shutters[shutterId]['name']+"] Discard final position. Position is now: " + str(state.position))
 
     def lower(self, shutterId):
-        state = self.getShutterState(shutterId, 100)
-
         self.LogInfo("["+self.config.Shutters[shutterId]['name']+"] Going down")
         self.sendCommand(shutterId, self.buttonDown, self.config.SendRepeat)
+        self._simulateDown(shutterId)
+
+    # Position-model update for a "down" command, shared by the TX path
+    # (lower(), above) and the physical-remote path (recordExternalCommand).
+    def _simulateDown(self, shutterId):
+        state = self.getShutterState(shutterId, 100)
         state.registerCommand('down')
 
         # wait and set final position only if not interrupted in between
@@ -199,10 +216,14 @@ class Shutter(MyLog):
         self.setPosition(shutterId, percentage)
 
     def rise(self, shutterId):
-        state = self.getShutterState(shutterId, 0)
-
         self.LogInfo("["+self.config.Shutters[shutterId]['name']+"] Going up")
         self.sendCommand(shutterId, self.buttonUp, self.config.SendRepeat)
+        self._simulateUp(shutterId)
+
+    # Position-model update for an "up" command, shared by the TX path
+    # (rise(), above) and the physical-remote path (recordExternalCommand).
+    def _simulateUp(self, shutterId):
+        state = self.getShutterState(shutterId, 0)
         state.registerCommand('up')
 
         # wait and set final position only if not interrupted in between
@@ -223,14 +244,26 @@ class Shutter(MyLog):
         self.setPosition(shutterId, percentage)
 
     def stop(self, shutterId):
-        state = self.getShutterState(shutterId, 50)
-
         self.LogInfo("["+self.config.Shutters[shutterId]['name']+"] Stopping")
         self.sendCommand(shutterId, self.buttonStop, self.config.SendRepeat)
+        self._simulateStop(shutterId)
+
+    # Position-model update for a "stop"/"my" command, shared by the TX path
+    # (stop(), above) and the physical-remote path (recordExternalCommand).
+    # Inherits the full MY-button ping-pong the motors implement (see
+    # documentation/Receiver Design.md §5.2) from the elapsed-time/fallback
+    # logic below — no special-casing needed for physical presses.
+    def _simulateStop(self, shutterId):
+        state = self.getShutterState(shutterId, 50)
 
         self.LogDebug("["+shutterId+"] Previous position: " + str(state.position))
-        secondsSinceLastCommand = int(round(time.monotonic() - state.lastCommandTime))
-        self.LogDebug("["+shutterId+"] Seconds since last command: " + str(secondsSinceLastCommand))
+        # Float seconds, not int(round(...)): a MY press within ~0.5s of a
+        # movement command previously rounded down to 0, failing the ">0"
+        # guard below and misclassifying as "stopped while stationary"
+        # instead of "stopped mid-movement" — far more likely on a physical
+        # remote's quick double-presses than via the network path.
+        secondsSinceLastCommand = time.monotonic() - state.lastCommandTime
+        self.LogDebug("["+shutterId+"] Seconds since last command: " + str(round(secondsSinceLastCommand, 2)))
 
         # Compute position based on time elapsed since last command & command direction
         setupDurationDown = self.config.Shutters[shutterId]['durationDown']
@@ -297,6 +330,23 @@ class Shutter(MyLog):
     def registerCallBack(self, callbackFunction):
         self.callback.append(callbackFunction)
 
+    # Update the position model for a button press heard from a physical RTS
+    # remote (documentation/Receiver Design.md §5.2) — dispatches to the same
+    # _simulate* methods the TX path uses, with no RF transmission.
+    def recordExternalCommand(self, shutterId, button):
+        name = self.config.Shutters[shutterId]['name']
+        if button == self.buttonUp:
+            self.LogInfo("["+name+"] Physical remote: UP")
+            self._simulateUp(shutterId)
+        elif button == self.buttonDown:
+            self.LogInfo("["+name+"] Physical remote: DOWN")
+            self._simulateDown(shutterId)
+        elif button == self.buttonStop:
+            self.LogInfo("["+name+"] Physical remote: STOP/MY")
+            self._simulateStop(shutterId)
+        else:
+            self.LogWarn("["+name+"] Physical remote: unhandled button 0x%X" % button)
+
     def sendCommand(self, shutterId, button, repetition): #Sending a frame
     # Sending more than two repetitions after the original frame means a button kept pressed and moves the blind in steps 
     # to adjust the tilt. Sending the original frame and three repetitions is the smallest adjustment, sending the original
@@ -307,6 +357,7 @@ class Shutter(MyLog):
        self.lock.acquire()
        try:
            self.LogDebug("sendCommand: Lock acquired")
+           self.transmitting.set()
            checksum = 0
 
            teleco = int(shutterId, 16)
@@ -410,6 +461,7 @@ class Shutter(MyLog):
 
                pi.stop()
        finally:
+           self.transmitting.clear()
            self.lock.release()
            self.LogDebug("sendCommand: Lock released")
 
@@ -520,6 +572,7 @@ class operateShutters(MyLog):
         self.schedule = Schedule(log = self.log, config = self.config)
         self.scheduler = None
         self.webServer = None
+        self.receiver = None
 
         if (args.echo == True):
             self.alexa = Alexa(kwargs={'log':self.log, 'shutter': self.shutter, 'config': self.config})
@@ -527,6 +580,12 @@ class operateShutters(MyLog):
         if (args.mqtt == True):
             from mqtt import MQTT
             self.mqtt = MQTT(kwargs={'log':self.log, 'shutter': self.shutter, 'config': self.config})
+
+        # Enabled when RXGPIO is present in [General] — no new CLI flag
+        # (documentation/Receiver Design.md §5.1).
+        if not WINDOWS and self.config.RXGPIO is not None:
+            from receiver import Receiver
+            self.receiver = Receiver(kwargs={'log':self.log, 'shutter': self.shutter, 'config': self.config})
 
         self.ProcessCommand(args);
 
@@ -563,12 +622,16 @@ class operateShutters(MyLog):
            return False
 
        # pigpio path for Pi 1/2/3/4
+       # Deliberately not passing -m (disable alerts): -m silently prevents
+       # pi.callback() from ever delivering edge notifications, which the
+       # receiver (Receiver, when config.RXGPIO is set) needs — found the
+       # hard way during the M0 receiver POC (documentation/Receiver Design.md §10).
        if sys.version_info[0] < 3:
            import commands
            status, process = commands.getstatusoutput('sudo pidof pigpiod')
            if status:  #  it wasn't running, so start it
                self.LogInfo ("pigpiod was not running")
-               commands.getstatusoutput('sudo pigpiod -l -m')  # try to  start it
+               commands.getstatusoutput('sudo pigpiod -l')  # try to  start it
                time.sleep(0.5)
                # check it again
                status, process = commands.getstatusoutput('sudo pidof pigpiod')
@@ -577,7 +640,7 @@ class operateShutters(MyLog):
            status, process = subprocess.getstatusoutput('sudo pidof pigpiod')
            if status:  #  it wasn't running, so start it
                self.LogInfo ("pigpiod was not running")
-               subprocess.getstatusoutput('sudo pigpiod -l -m')  # try to  start it
+               subprocess.getstatusoutput('sudo pigpiod -l')  # try to  start it
                time.sleep(0.5)
                # check it again
                status, process = subprocess.getstatusoutput('sudo pidof pigpiod')
@@ -634,6 +697,9 @@ class operateShutters(MyLog):
              if (args.mqtt == True):
                  self.mqtt.daemon = True
                  self.mqtt.start()
+             if self.receiver is not None:
+                 self.receiver.daemon = True
+                 self.receiver.start()
              self.scheduler.join()
        elif ((args.shutterName != "") and (args.press)):
 
@@ -661,6 +727,9 @@ class operateShutters(MyLog):
              if (args.mqtt == True):
                  self.mqtt.daemon = True
                  self.mqtt.start()
+             if self.receiver is not None:
+                 self.receiver.daemon = True
+                 self.receiver.start()
              self.webServer = FlaskAppWrapper(name='WebServer', static_url_path=os.path.dirname(os.path.realpath(__file__))+'/html', log = self.log, shutter = self.shutter, schedule = self.schedule, config = self.config)
              self.webServer.run()
        else:
@@ -672,11 +741,16 @@ class operateShutters(MyLog):
        if (args.mqtt == True):
            self.mqtt.daemon = True
            self.mqtt.start()
+       if self.receiver is not None:
+           self.receiver.daemon = True
+           self.receiver.start()
 
        if (args.echo == True):
            self.alexa.join()
        if (args.mqtt == True):
            self.mqtt.join()
+       if self.receiver is not None:
+           self.receiver.join()
        self.LogInfo ("Process Command Completed....")
        self.Close();
 
@@ -708,6 +782,11 @@ class operateShutters(MyLog):
                 self.mqtt.shutdown_flag.set()
                 self.mqtt.join()
                 self.LogError("MQTT Listener stopped. Now exiting.")
+            if self.receiver is not None:
+                self.LogError("Stopping RTS Receiver. This can take up to 1 second...")
+                self.receiver.shutdown_flag.set()
+                self.receiver.join()
+                self.LogError("RTS Receiver stopped. Now exiting.")
             if self.webServer is not None:
                 self.LogError("Stopping WebServer. This can take up to 1 second...")
                 self.webServer.shutdown_server()
