@@ -727,10 +727,14 @@ class Receiver(threading.Thread, MyLog):
         address = "0x%06x" % frame.address
         shutterIds = self.config.PhysicalRemotes.get(address)
         if not shutterIds:
-            self.LogInfo("Receiver: unknown remote " + address + " pressed " +
-                        button_name(frame.button) + " (code=" + str(frame.rolling_code) + ")")
+            msg = ("Receiver: unknown remote " + address + " pressed " +
+                  button_name(frame.button) + " (code=" + str(frame.rolling_code) + ")")
+            self.LogInfo(msg)
+            self.LogConsole(msg)
             self._unknown_remotes.append((address, frame.button, frame.rolling_code))
             return
+        self.LogConsole("Receiver: " + address + " pressed " + button_name(frame.button) +
+                        " -> " + ", ".join(shutterIds))
         for shutterId in shutterIds:
             if shutterId not in self.config.Shutters:
                 self.LogWarn("Receiver: [PhysicalRemotes] " + address +
