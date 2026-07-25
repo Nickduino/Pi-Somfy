@@ -624,24 +624,28 @@ class operateShutters(MyLog):
        # Deliberately not passing -m (disable alerts): -m silently prevents
        # pi.callback() from ever delivering edge notifications, which the
        # receiver (Receiver, when config.RXGPIO is set) needs.
+       # No sudo: __init__ already refused to run unless os.geteuid() == 0,
+       # so this process is already root in every deployment (standalone,
+       # systemd, or a container) — sudo here would just add a dependency
+       # this code doesn't need.
        if sys.version_info[0] < 3:
            import commands
-           status, process = commands.getstatusoutput('sudo pidof pigpiod')
+           status, process = commands.getstatusoutput('pidof pigpiod')
            if status:  #  it wasn't running, so start it
                self.LogInfo ("pigpiod was not running")
-               commands.getstatusoutput('sudo pigpiod -l')  # try to  start it
+               commands.getstatusoutput('pigpiod -l')  # try to  start it
                time.sleep(0.5)
                # check it again
-               status, process = commands.getstatusoutput('sudo pidof pigpiod')
+               status, process = commands.getstatusoutput('pidof pigpiod')
        else:
            import subprocess
-           status, process = subprocess.getstatusoutput('sudo pidof pigpiod')
+           status, process = subprocess.getstatusoutput('pidof pigpiod')
            if status:  #  it wasn't running, so start it
                self.LogInfo ("pigpiod was not running")
-               subprocess.getstatusoutput('sudo pigpiod -l')  # try to  start it
+               subprocess.getstatusoutput('pigpiod -l')  # try to  start it
                time.sleep(0.5)
                # check it again
-               status, process = subprocess.getstatusoutput('sudo pidof pigpiod')
+               status, process = subprocess.getstatusoutput('pidof pigpiod')
 
        if not status:  # if it was started successfully (or was already running)...
            pigpiod_process = process
