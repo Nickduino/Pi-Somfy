@@ -1,6 +1,8 @@
 # Design: RTS Receiver — Track Physical Remote Presses
 
-Status: **Draft / proposal**
+Status: **M0 core pipeline validated on real hardware** — loopback 100 %, a
+real remote decodes correctly (§7, §8); the farthest-room range test and the
+24 h noise/CPU soak are still open but non-blocking. M1+ still draft/proposal
 Target: Pi-Somfy v3.2+
 
 ## 1 Motivation
@@ -46,7 +48,7 @@ Physical remote press
 **Non-goals (v1)**
 
 - Decoding encrypted Somfy io-homecontrol devices (different protocol entirely).
-- Tilt/long-press handling (future work, see §10).
+- Tilt/long-press handling (future work, see §11).
 - Replacing the TX hardware with the receiver's transceiver (future work).
 
 ## 3 Protocol background
@@ -173,8 +175,12 @@ Internal components:
   already ships:
   - *Pi 1–4:* `pigpio` edge callbacks (`pi.callback(RXGPIO, EITHER_EDGE)`) on
     the **same pigpiod daemon the TX path already runs** — no extra footprint.
-    pigpiod timestamps every edge daemon-side in µs ticks, so Python
-    scheduling jitter does not affect decoding accuracy.
+    That daemon must be started **without** `-m` (disable alerts) — `-m` is
+    what `operateShutters.py`'s `startGPIO()` passes today, harmlessly for a
+    TX-only daemon, but it silently kills `pi.callback()` delivery entirely
+    (confirmed the hard way during the M0 POC; see §10). pigpiod timestamps
+    every edge daemon-side in µs ticks, so Python scheduling jitter does not
+    affect decoding accuracy.
     `pi.set_glitch_filter(RXGPIO, 150)` drops sub-150 µs noise glitches inside
     the daemon before they ever reach Python (the shortest real pulse is
     640 µs).
@@ -298,12 +304,33 @@ claim what was heard":
 
 - **v1 (config-file):** unknown presses are logged; the user copies the
   address into `[PhysicalRemotes]`.
-- **v2 (web UI):** a "Remotes" page backed by two endpoints —
-  `GET /cmd/getUnheardRemotes` returns the ring buffer of recently heard
-  unknown addresses `{address, lastButton, count, secondsAgo}`;
-  `POST /cmd/assignRemote` writes the mapping to `[PhysicalRemotes]`. The flow
-  mirrors the existing shutter-programming UI: open page → press the physical
-  remote → the address appears → tick the shutter(s) it controls → save.
+- **v2 (web UI), concretely, in the existing settings page** (`html/index.html`
+  — no separate page): the shutter/motor setup UI is already an accordion of
+  sections (`#collapseOne` location, `#collapseTwo` "Add/Remove Shutter",
+  a schedule section) inside one `#accordion`. Physical-remote pairing gets
+  its own sibling section, **"Physical Remotes"**, added the same way:
+  - A table of currently-paired remotes (address → shutter name(s)), with an
+    unassign action — mirrors the existing `#shutters` table
+    (`webserver.py`'s `addShutter`/`editShutter`/`deleteShutter` pattern).
+  - Below it, a "recently heard" list from `GET /cmd/getUnheardRemotes`
+    (`{address, lastButton, count, secondsAgo}`), each row with an "Assign"
+    button opening a small modal. That modal reuses the **existing
+    multi-select shutter picker** already in `index.html` (`<select
+    id="shutters" class="shuttersList" multiple="multiple">`, currently used
+    for scheduling) to tick which shutter(s) the address controls — group
+    channels naturally become a multi-shutter tick, no new widget needed.
+    Saving calls `POST /cmd/assignRemote`, which writes to `[PhysicalRemotes]`
+    the same way `addShutter` writes to `[Shutters]`.
+  - Nice-to-have, not required for the MVP: each shutter row's existing
+    "Configure" wizard (wrench icon → the step-by-step modal that already has
+    Initial Setup / Adjust Limits / My Position accordion steps) gets one more
+    step, "Pair a Physical Remote to This Shutter", that deep-links to the
+    Physical Remotes section with this shutter pre-ticked — convenient during
+    initial motor setup, when the user is already in that wizard.
+  - The pairing UI should also prompt for `[ShutterIntermediatePositions]`
+    when it's unset for a shutter being paired (§5.2's mandatory-in-practice
+    note) — natural to fold into the same "Assign" modal or the Configure
+    wizard's existing "My Position" step.
 
 ### 5.6 Position persistence across restarts
 
@@ -342,7 +369,7 @@ ever" to "physical presses during downtime only".
 - The MQTT topic scheme, HA discovery payloads and the HA custom component.
 - Scheduler, Alexa, web UI (until the v2 learning page).
 
-## 7 Proof of concept — standalone, before touching this codebase
+## 7 Proof of concept — standalone, before touching this codebase (✅ M0 complete)
 
 The POC validates hardware, frequency, range and the decoder **with zero
 coupling to Pi-Somfy's code**, packaged the same way the project already
@@ -356,16 +383,18 @@ lookalike:
 
 ```
 addons/rts_sniffer_poc/
-├── config.yaml       # same grants as the pi_somfy add-on, no ingress
-├── Dockerfile        # same base + pigpio/lgpio source builds as pi_somfy
-├── run.sh            # starts pigpiod on Pi 1–4, exactly like pi_somfy
-└── sniffer.py        # CC1101 init (bb_spi) + edge decoder + test TX + logging
+├── config.yaml         # same grants as the pi_somfy add-on, no ingress
+├── Dockerfile          # same base + pigpio/lgpio source builds as pi_somfy
+├── patch_pigpiod.py    # build-time patch, see below
+├── run.sh              # starts pigpiod on Pi 1–4, exactly like pi_somfy
+├── sniffer.py          # CC1101 init (bb_spi) + edge decoder + test TX + logging
+└── test_sniffer.py     # 19 decoder unit tests, run anywhere (§9)
 ```
 
-- `sniffer.py` is self-contained (~350 lines): configure the CC1101 via
-  pigpio `bb_spi_*`, register edge callbacks on the data pin, decode, and log
-  every frame (`0x14A2C7  UP  code=1337  repeats=4`) to the add-on log.
-  Optionally publish to MQTT topic `somfy_sniffer/event` for visibility in HA.
+- `sniffer.py` configures the CC1101 via pigpio `bb_spi_*`, registers edge
+  callbacks on the data pin, decodes, and logs every frame
+  (`0x14A2C7  UP  code=1337  repeats=4`) to the add-on log. Optionally
+  publishes to MQTT topic `somfy_sniffer/event` for visibility in HA.
 - **Built-in loopback transmitter:** the sniffer embeds the frame/waveform
   generation from `sendCommand` (copied, not imported) and can transmit a
   test frame from a dummy address on the TX GPIO every N seconds — TX and RX
@@ -380,27 +409,52 @@ addons/rts_sniffer_poc/
   process, one daemon, both directions.
 - Bit-banged SPI means **no HAOS host changes** — no `dtparam=spi=on` edit of
   `config.txt`, no reboot.
+- `patch_pigpiod.py` patches one thing at build time: pigpiod's `main()`
+  unconditionally tries to create an error-reporting FIFO under `/dev`
+  (`unlink`/`mkfifo`/`chmod` on `/dev/pigerr`), with no flag to disable it.
+  In this container `/dev` is read-only beyond the specific devices granted,
+  so that call aborts startup; the patch replaces it with a direct
+  `errFifo = stderr`, since the sniffer only ever talks to pigpiod over its
+  TCP socket interface and never needed the FIFO anyway.
 
 **POC success criteria**
 
-1. Loopback: ≥95 % of the built-in test transmissions decoded with correct
-   address/button/rolling code.
-2. Range: every physical remote press from the farthest room is decoded
+1. ✅ Loopback: ≥95 % of the built-in test transmissions decoded with correct
+   address/button/rolling code — **measured 100 %** on a Pi 4 + CC1101
+   (2026-07-24).
+2. 🟡 Range: every physical remote press from the farthest room is decoded
    (each press repeats its frame several times, so catching any one repeat
-   counts).
-3. Noise: zero checksum-valid false positives over 24 h of idle listening.
-4. Load: sniffer CPU < 5 % on a Pi 4 in a normal RF environment.
+   counts) — a real remote was heard and decoded correctly (address, button,
+   incrementing rolling code, repeat-count tracking all confirmed working),
+   but not yet specifically tested at the farthest-room distance this
+   criterion calls for.
+3. ⬜ Noise: zero checksum-valid false positives over 24 h of idle listening —
+   not yet run; worth doing before M1 sign-off.
+4. ⬜ Load: sniffer CPU < 5 % on a Pi 4 in a normal RF environment — not yet
+   measured.
 
-Only after the POC passes do we start the integration milestones — and
-`sniffer.py`'s decoder moves into `receiver.py` nearly verbatim.
+The path to these results was not the CC1101 register tuning it initially
+looked like (see the full account in §10 and Appendix A) — it was a single
+`pigpiod` startup flag (`-m`, disables alerts) inherited unquestioned from
+`operateShutters.py`'s TX-only startup, which silently broke `pi.callback()`
+delivery regardless of any RF-side configuration. That is now understood and
+fixed in the POC's `run.sh`, and is the single most important thing to carry
+into M1 (§10, §12).
+
+Criteria 1 and (partially) 2 are met — the core pipeline is proven correct on
+real hardware. Criteria 3 and 4, and the specific farthest-room range test,
+remain open; worth running before M1 sign-off, but they don't block starting
+the integration work: `sniffer.py`'s decoder and CC1101 register map move
+into `receiver.py` (§5.1) as M1 — see §12 for how to do that without
+fighting the upstream fork relationship.
 
 ## 8 Milestones
 
 | # | Deliverable | Depends on |
 |---|---|---|
-| M0 | POC sniffer add-on (§7) + decoder unit tests | CC1101 hardware |
-| M1 | `receiver.py`, `Shutter` `_simulate*` refactor, `[PhysicalRemotes]`, self-echo + de-dup filters, config-file pairing, position persistence (§5.6) | M0 |
-| M2 | Movement-state callback (§5.4), web UI learning page (§5.5), README hardware chapter, add-on options (`rx_gpio_pin`, SPI pins) | M1 |
+| M0 | ✅ **Done.** POC sniffer add-on (§7) + decoder unit tests. Loopback 100 %, real remote decoded. Noise/CPU soak (POC criteria 3–4) still worth running before M1 sign-off | CC1101 hardware |
+| M1 | `receiver.py`, `Shutter` `_simulate*` refactor, `[PhysicalRemotes]`, self-echo + de-dup filters, config-file pairing, position persistence (§5.6) — see §12 for how to structure this against the upstream fork | M0 |
+| M2 | Movement-state callback (§5.4), web UI learning section in the existing settings page (§5.5), README hardware chapter, add-on options (`rx_gpio_pin`, SPI pins) | M1 |
 | M3 | Nice-to-haves: HA event entities per physical remote (any RTS remote as automation trigger), long-press/tilt, Somfy sun/wind sensors (Soliris/Eolis speak RTS too) | M2 |
 
 ## 9 Testing
@@ -443,30 +497,121 @@ Only after the POC passes do we start the integration milestones — and
   frames.
 - Decode RTS sensors (Soliris sun/wind) as HA sensor entities.
 
-## Appendix A — CC1101 configuration notes (finalised in M0)
+## 12 Fork-friendly implementation strategy
 
-The exact register map is settled during M0, anchored in this order: the
-CC1101 datasheet formulas, TI SmartRF Studio output for 433.42 MHz OOK, and
-proven open-source Somfy implementations (ESPSomfy-RTS is the reference).
-Third-party register dumps — including AI-suggested ones — must be re-derived
-against the datasheet before use. Cautionary example from review: a suggested
-`MDMCFG4 = 0xC7` annotated as "~325 kHz bandwidth" actually computes to
-≈102 kHz (`BW = 26 MHz / (8 × (4+CHANBW_M) × 2^CHANBW_E)` with E=3, M=0) —
-narrow, i.e. the opposite of its stated intent of catching drifted remotes.
+This repo is a fork of `Nickduino/Pi-Somfy` — `origin` in this checkout points
+at the fork, not upstream, and `README.md` already documents cherry-picking
+specific upstream fixes by PR number (#164, #156, #159) into files this fork
+has since diverged from. That practice — take specific upstream fixes,
+reapply by hand where they no longer apply cleanly — is the existing norm,
+not a full periodic merge. M1 should be built to keep that norm cheap, since
+`operateShutters.py`, `config.py`, `webserver.py` and `html/*` are all files
+upstream continues to patch.
 
-Requirements the final map must satisfy (26 MHz crystal assumed):
+**Practical step:** add upstream as a second remote so future syncing is a
+`git fetch` away instead of a manual re-diff:
+```
+git remote add upstream https://github.com/Nickduino/Pi-Somfy.git
+```
 
-| Concern | Register(s) | Requirement |
+**Per-file strategy for M1:**
+
+| File | Upstream touches it? | Approach |
 |---|---|---|
-| Carrier | `FREQ2/1/0` | 433.42 MHz exactly: `FREQ = round(433.42 MHz × 2^16 / 26 MHz)` |
-| Modulation | `MDMCFG2` | ASK/OOK; sync-word detection disabled (raw stream) |
-| Serial output | `PKTCTRL0`, `IOCFG0` | asynchronous serial mode; GDO0 routes demodulated data (0x0D) |
-| RX bandwidth | `MDMCFG4` (high nibble) | wide enough for aged, drifting handheld remotes — target ~200–325 kHz; narrow only if the noise floor forces it |
-| Data-rate filter | `MDMCFG4` (low nibble), `MDMCFG3` | matched to the 640 µs half-symbol stream (~1.6 kBaud chip rate) |
-| OOK demod behaviour | `AGCCTRL2..0` | AGC/decision thresholds from a proven Somfy OOK profile |
-| Comms sanity | `PARTNUM`, `VERSION` | read at startup; abort if SPI read-back fails (§5.1) |
+| `receiver.py` (new) | No | Whole new file — zero conflict surface by construction |
+| `operateShutters.py` | Yes, actively | `rise()`/`lower()`/`stop()` become one-line bodies calling `sendCommand(...)` + the new `_simulate*` method (§5.2) — the *new* logic lives entirely in the new `_simulate*` methods (additions), not in edits to the old bodies. A future upstream fix to `rise()`/`lower()`/`stop()` then conflicts on one line, not a rewritten block. Same principle for `ProcessCommand` (one new line starting the `Receiver` thread) and `startGPIO()` (drop `-m`, a one-token diff, not a rewrite) |
+| `config.py` | Yes, actively | New sections (`[PhysicalRemotes]`, `[ShutterPositions]`, `RXGPIO`/SPI keys) parsed by new helper methods (e.g. `_loadPhysicalRemotes()`), called from one new line appended at the end of `LoadConfig` — not interleaved with existing section-parsing logic |
+| `webserver.py` | Yes, occasionally | `getUnheardRemotes`/`assignRemote` (§5.5) as entirely new methods + new route registrations, following the existing `addShutter`/`editShutter` pattern exactly rather than inventing a new one |
+| `mqtt.py` | Yes, occasionally | `registerMovementCallBack` (§5.4) is a new registration call; the existing inline `_publish_state` calls it replaces should be deleted in the same commit, not left dead, but kept to that one mechanical swap |
+| `html/index.html`, `operateShutters.js` | Yes, actively (UI tweaks land often) | New "Physical Remotes" accordion section (§5.5) appended after the existing sections, not spliced between them — new `<script>` functions for it appended near the related existing ones (`addShutter`/`editShutter`), not reshuffling existing functions |
+| `documentation/Receiver Design.md`, `addons/rts_sniffer_poc/` | No | Fork-only; upstream has no receiver, so no conflict risk ever |
 
-The empirical tuning loop is the M0 loopback transmitter plus a real remote
-at increasing distances: adjust bandwidth and AGC until success criteria
-§7 (1)–(4) pass. Register values judged "working" without that loop are not
-accepted.
+**General rule for the whole milestone:** prefer additions (new methods, new
+files, new config sections, one new call-site line) over edits to existing
+function bodies. Where an existing function's *behaviour* genuinely must
+change (e.g. `stop()`'s elapsed-time math moving from `int(round(...))` to
+float seconds, §5.2), make that specific change as small and isolated as
+possible and say why in a comment — a future upstream patch to the same
+function will conflict on that line either way, but a small, well-explained
+diff is a five-second manual reapply instead of a re-derivation.
+
+Land M1 as a sequence of small, reviewable commits along the boundaries in
+the table above, rather than one large patch — it keeps "what's fork-specific
+vs. a candidate to also send upstream" legible long after this design doc is
+forgotten.
+
+## Appendix A — CC1101 configuration notes (finalised and validated in M0)
+
+The register map below is validated end-to-end on real hardware (Pi 4 +
+CC1101, loopback 100 %, real remote decoded — §7) as `CC1101_RX_CONFIG` in
+`addons/rts_sniffer_poc/sniffer.py`. `receiver.py` should port it verbatim
+at M1 rather than re-deriving it.
+
+Cautionary tale that motivated getting to an actually-validated table rather
+than trusting datasheet-formula derivations alone: an early draft used
+`MDMCFG4 = 0xC7` annotated as "~325 kHz bandwidth" — it actually computes to
+≈102 kHz (`BW = 26 MHz / (8 × (4+CHANBW_M) × 2^CHANBW_E)` with E=3, M=0),
+narrow rather than wide. The *value* 0xC7 turned out to be correct for the
+final config below, but the annotation was backwards — a reminder that
+third-party register dumps and formula-derived guesses both need checking
+against real hardware, not just each other.
+
+| Addr | Reg | Value | Note |
+|---|---|---|---|
+| 0x00 | IOCFG2 | 0x2E | GDO2 high impedance (unused, not wired) |
+| 0x02 | IOCFG0 | 0x0D | GDO0 = asynchronous serial RX data |
+| 0x06 | PKTLEN | 0x00 | unused in infinite-length async mode |
+| 0x07 | PKTCTRL1 | 0x04 | no address check, no status append |
+| 0x08 | PKTCTRL0 | 0x32 | asynchronous serial mode, no CRC, infinite length |
+| 0x09 | ADDR | 0x00 | unused (no address check) |
+| 0x0A | CHANNR | 0x00 | channel 0, no channel hopping |
+| 0x0B | FSCTRL1 | 0x06 | IF = 26MHz·6/2¹⁰ = 152 kHz |
+| 0x0D–0x0F | FREQ2/1/0 | 0x10, 0xAB, 0x85 | `FREQ = round(433.42MHz × 2¹⁶ / 26MHz)` → carrier 433.419995 MHz |
+| 0x10 | MDMCFG4 | 0xC7 | RX BW 26MHz/(8·(4+0)·2³) = 101.6 kHz (CHANBW_E=3,M=0); DRATE_E=7 |
+| 0x11 | MDMCFG3 | 0x93 | DRATE_M, paired with DRATE_E=7 above |
+| 0x12 | MDMCFG2 | 0x3C | DC-blocking filter on; ASK/OOK; MANCHESTER_EN=1, SYNC_MODE=100 (see below) |
+| 0x13 | MDMCFG1 | 0x02 | no FEC, minimal preamble (irrelevant in async mode) |
+| 0x14 | MDMCFG0 | 0xF8 | channel spacing (irrelevant, no channel hopping) |
+| 0x15 | DEVIATN | 0x47 | frequency deviation (FSK-only, irrelevant for OOK) |
+| 0x18 | MCSM0 | 0x18 | auto-calibrate synthesizer on IDLE→RX |
+| 0x19 | FOCCFG | 0x16 | frequency offset compensation |
+| 0x1A | BSCFG | 0x1C | bit synchronization config |
+| 0x1B | AGCCTRL2 | 0x03 | **full** LNA/DVGA gain, 33 dB magnitude target |
+| 0x1C | AGCCTRL1 | 0x00 | no relative carrier-sense thresholds |
+| 0x1D | AGCCTRL0 | 0x91 | OOK decision boundary 8 dB above averaged noise floor |
+| 0x21 | FREND1 | 0x56 | RX front end |
+| 0x22 | FREND0 | 0x11 | OOK PA table index 1 (TX side, unused here) |
+| 0x23–0x26 | FSCAL3/2/1/0 | 0xE9, 0x2A, 0x00, 0x1F | frequency synthesizer calibration |
+| 0x29 | FSTEST | 0x59 | — |
+| 0x2C–0x2E | TEST2/1/0 | 0x81, 0x35, 0x09 | datasheet threshold values for the ≥325 kHz RX-BW regime; still correct despite our narrower filter — not a linear function of bandwidth |
+
+**Key departures from the initial (untested) draft, discovered only by
+testing on real hardware:**
+
+- **Full gain, not capped.** `AGCCTRL2` with the top-3 DVGA gain stages
+  capped (0xC7, seen in some reference implementations) reliably killed all
+  receive activity in every combination tried on this specific board —
+  independent of bandwidth, AGCCTRL0, or the DC-blocking filter. Full gain
+  (0x03) is required just to get any signal at all.
+- **`DRATE_E=7`, not 5.** The original assumption — that the data-rate
+  register must match the protocol's 640 µs half-symbol timing — is wrong.
+  Asynchronous serial mode streams the demodulator's raw real-time decision,
+  not a clocked bitstream; DRATE mainly shapes internal filtering, not
+  output timing. A generic value works fine.
+- **`FOCCFG`, `BSCFG`, `FSCAL0-3`, `FSTEST`, `DEVIATN`, `MDMCFG1/0`,
+  `CHANNR`, `ADDR`, `PKTLEN`** were never configured in earlier drafts (left
+  at whatever the chip's power-on-reset defaults happened to be). All are
+  now explicit.
+- **`MANCHESTER_EN`/`SYNC_MODE`** (in `MDMCFG2`) are set to match a proven
+  reference implementation but are, per the datasheet, packet-engine
+  features tied to bit-clock recovery that asynchronous serial mode has
+  none of — almost certainly don't-care bits here, kept only because they
+  match hardware this exact configuration is proven against. If `receiver.py`
+  is ever changed to expect an already-Manchester-decoded bitstream instead
+  of the raw half-symbol stream the current decoder expects, revisit this
+  — it would mean these bits do something after all.
+- **The actual blocker was never the CC1101 at all.** See §7/§10: pigpiod
+  started with `-m` (disables alerts) silently prevented `pi.callback()`
+  from ever firing, regardless of RF-side tuning. Register correctness
+  matters and is captured here, but don't let a future regression send
+  someone back through this whole table before checking that flag first.
