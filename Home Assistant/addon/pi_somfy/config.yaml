@@ -33,7 +33,6 @@ ports_description:
 watchdog: "http://[HOST]:[PORT:80]/cmd/getConfig"
 options:
   gpio_pin: 4
-  rx_gpio_pin: ""
   spi_sck: 21
   spi_mosi: 20
   spi_miso: 19
