@@ -34,6 +34,16 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && apt-get purge -y --auto-remove make gcc g++ libc6-dev swig python3-dev \
     && rm -rf /var/lib/apt/lists/*
 
+# Cache-busting for the clone below: Docker caches `RUN git clone` by the
+# command's literal text, not by checking whether the remote branch has new
+# commits — without this, a rebuild can silently reuse a stale clone from
+# before your latest push (and finish suspiciously fast). ADD-from-URL is
+# different: Docker re-checks the URL's ETag/Last-Modified on every build, so
+# using GitHub's commit API here invalidates the cache below whenever the
+# branch actually moves. Testing-only — remove this block alongside
+# REPO_URL/GIT_REF once this merges upstream.
+ADD https://api.github.com/repos/orren5/Pi-Somfy/commits/reciever_M1 /tmp/branch_head.json
+
 # Clone Pi-Somfy source at build time. Defaults below point at this fork's
 # testing branch — revert REPO_URL to https://github.com/Nickduino/Pi-Somfy.git
 # and GIT_REF to v${BUILD_VERSION} once this merges upstream and a release
