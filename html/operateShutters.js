@@ -628,6 +628,7 @@ var modalCallerIconElement;
 var configShutter;
 var assignRemoteAddress;
 var unheardRemotesInterval = null;
+var manualOperationInterval = null;
 
 const buttonStop = 0x1;
 const buttonUp = 0x2;
@@ -667,8 +668,14 @@ function GetStartupInfo(initMap)
                if (config.Longitude == 0) {
                    $('#collapseOne').collapse('show');
                } else if (Object.keys(config.Shutters).length == 0){
-                   $('.accordion-collapse.show').collapse('toggle'); 
+                   $('.accordion-collapse.show').collapse('toggle');
                    $('#collapseTwo').collapse('show');
+               }
+               // Manual Operation is expanded by default (no shown.collapse
+               // fires for content already open at load), so start polling
+               // here once rather than only from the collapse event.
+               if (manualOperationInterval === null && $('#collapseFour').hasClass('show')) {
+                   manualOperationInterval = setInterval(refreshMovementStates, 3000);
                }
                $(".loader").removeClass("is-active");
             });
@@ -958,17 +965,45 @@ function setupTableShutters () {
                   '</tr>';
         $("#shutters").append(row);
 
-        var cell = '<div class="shutterRemote" name="'+shutter+'">' + 
+        var cell = '<div class="shutterRemote" name="'+shutter+'">' +
 						'<div class="name">'+config.Shutters[shutter]+'</div>' +
+                        '<div class="position"></div>' +
+                        '<div class="state"></div>' +
                         '<a class="up btn" title="Up" data-toggle="tooltip" role="button"><svg viewBox="0 0 80 70" xmlns="http://www.w3.org/2000/svg"><path d="M35 14 Q40 0, 45 14 C55 30, 67 52, 71 60 Q75 68, 64 68 L16 68 Q5 68, 9 60 C13 52, 25 30, 35 14 Z" fill="#ccc" stroke="#aaa" stroke-width="1.5"/></svg></a>' +
                         '<a class="stop btn" title="Stop" data-toggle="tooltip" role="button"><svg viewBox="0 0 90 40" xmlns="http://www.w3.org/2000/svg"><rect x="2" y="2" width="86" height="36" rx="18" fill="#ccc" stroke="#aaa" stroke-width="1.5"/></svg></a>' +
                         '<a class="down btn" title="Down" data-toggle="tooltip" role="button"><svg viewBox="0 0 80 70" xmlns="http://www.w3.org/2000/svg"><path d="M9 10 Q5 2, 16 2 L64 2 Q75 2, 71 10 C67 18, 55 40, 45 56 Q40 70, 35 56 C25 40, 13 18, 9 10 Z" fill="#ccc" stroke="#aaa" stroke-width="1.5"/></svg></a>' +
                   '</div>';
         $("#action_manual").append(cell);
     });
-	
+
     $("#shuttersCount").text($("#shutters").find('tr').length-1);
-	
+    updateManualOperationState();
+}
+
+// Reflects config.MovementStates ('opening'/'closing'/'stopped'/null) and
+// config.Positions (0-100) onto each Manual Operation card — kept current
+// by refreshMovementStates(), polled while that section is visible, so a
+// physical remote press (or a command from elsewhere) shows up here too,
+// not just commands sent from this page.
+function updateManualOperationState() {
+    if (!config.MovementStates || !config.Positions) { return; }
+    Object.keys(config.MovementStates).forEach(function(shutter) {
+        var state = config.MovementStates[shutter];
+        var card = $('.shutterRemote[name="'+shutter+'"]');
+        var label = (state == "opening") ? "Opening..." : (state == "closing") ? "Closing..." : "";
+        card.find(".state").text(label);
+        card.find(".position").text(config.Positions[shutter] + "%");
+        card.toggleClass("moving", state == "opening" || state == "closing");
+    });
+}
+
+function refreshMovementStates() {
+    $.getJSON(baseurl.concat("getConfig"), {}, function(result, status){
+        if (!(status=="success")) { return; }
+        config.MovementStates = result.MovementStates;
+        config.Positions = result.Positions;
+        updateManualOperationState();
+    });
 }
 
 function setupTableSchedule () {
@@ -1529,6 +1564,18 @@ function setupListeners() {
         } else {
             mymap.invalidateSize();
         }
+    })
+
+    $('#collapseFour').on('shown.collapse', function () {
+        if (manualOperationInterval === null) {
+            refreshMovementStates();
+            manualOperationInterval = setInterval(refreshMovementStates, 3000);
+        }
+    })
+
+    $('#collapseFour').on('hidden.collapse', function () {
+        clearInterval(manualOperationInterval);
+        manualOperationInterval = null;
     })
 
     $('#collapseFive').on('shown.collapse', function () {

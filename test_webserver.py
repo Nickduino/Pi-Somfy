@@ -54,11 +54,12 @@ class FakeConfig(object):
 
 
 class FakeShutter(object):
-    def __init__(self, movement_states=None):
+    def __init__(self, movement_states=None, positions=None):
         self._movement_states = movement_states or {}
+        self._positions = positions or {}
 
     def getPosition(self, shutterId):
-        return 50
+        return self._positions.get(shutterId, 50)
 
     def getMovementState(self, shutterId):
         return self._movement_states.get(shutterId)
@@ -80,6 +81,25 @@ def make_client(config=None, receiver=None, shutter=None):
                               shutter=shutter or FakeShutter(), schedule=FakeSchedule(),
                               config=config, receiver=receiver)
     return wrapper.app.test_client(), config
+
+
+@unittest.skipUnless(_HAVE_WEBSERVER, "Flask is required to test webserver.py")
+class GetConfigMovementStatesTests(unittest.TestCase):
+    """getConfig also exposes MovementStates and Positions (ungated, unlike
+    getStatus) so the Pi-Somfy web UI's own Manual Operation panel can poll
+    them without needing password plumbing."""
+
+    def test_includes_movement_states_per_shutter(self):
+        shutter = FakeShutter(movement_states={"0x02aaaa": "closing"})
+        client, _ = make_client(shutter=shutter)
+        result = result_of(client.get("/cmd/getConfig"))
+        self.assertEqual(result["MovementStates"], {"0x02aaaa": "closing", "0x02bbbb": None})
+
+    def test_includes_positions_per_shutter(self):
+        shutter = FakeShutter(positions={"0x02aaaa": 75})
+        client, _ = make_client(shutter=shutter)
+        result = result_of(client.get("/cmd/getConfig"))
+        self.assertEqual(result["Positions"], {"0x02aaaa": 75, "0x02bbbb": 50})
 
 
 @unittest.skipUnless(_HAVE_WEBSERVER, "Flask is required to test webserver.py")
