@@ -41,9 +41,11 @@ OK. now this all should look like this. Note that some of the pictures are a bit
 ### 2.1 Receiver (optional) — tracking physical remotes
 
 Everything above covers sending commands. Optionally, Pi-Somfy can also
-*listen* for presses on your existing physical Somfy remotes, so pressing
-one keeps the app's tracked shutter position in sync — see
-`documentation/Receiver Design.md` for the full design.
+*listen* for presses on your existing physical Somfy remotes: a small
+receiver module decodes the same RTS radio protocol your remotes already
+speak, so pressing one updates Pi-Somfy's tracked shutter position (and
+Home Assistant, via MQTT or the custom component) immediately — not just
+commands issued through the app itself.
 
 This needs a second, separate piece of hardware: a CC1101 transceiver
 module (~$3) tuned in software to exactly 433.42 MHz. SPI is bit-banged on
