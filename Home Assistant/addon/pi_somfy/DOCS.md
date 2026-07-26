@@ -19,14 +19,19 @@ This add-on runs [Pi-Somfy](https://github.com/Nickduino/Pi-Somfy) directly on y
 
 ## Configuration
 
-| Option        | Default | Description                                                              |
-|---------------|---------|---------------------------------------------------------------------------|
-| `gpio_pin`    | `4`     | GPIO pin number for the 433.42 MHz transmitter                          |
-| `rx_gpio_pin` | (none)  | GPIO wired to a CC1101 receiver's data output. Leave blank to disable the physical-remote receiver entirely. |
-| `spi_sck`     | `21`    | CC1101 bit-banged SPI clock GPIO (only used when `rx_gpio_pin` is set)   |
-| `spi_mosi`    | `20`    | CC1101 bit-banged SPI MOSI GPIO (only used when `rx_gpio_pin` is set)    |
-| `spi_miso`    | `19`    | CC1101 bit-banged SPI MISO GPIO (only used when `rx_gpio_pin` is set)    |
-| `spi_csn`     | `16`    | CC1101 bit-banged SPI chip-select GPIO (only used when `rx_gpio_pin` is set) |
+| Option           | Default                | Description                                                              |
+|------------------|-------------------------|---------------------------------------------------------------------------|
+| `gpio_pin`       | `4`                     | GPIO pin number for the 433.42 MHz transmitter                          |
+| `rx_gpio_pin`    | (none)                  | GPIO wired to a CC1101 receiver's data output. Leave blank to disable the physical-remote receiver entirely. |
+| `spi_sck`        | `21`                    | CC1101 bit-banged SPI clock GPIO (only used when `rx_gpio_pin` is set)   |
+| `spi_mosi`       | `20`                    | CC1101 bit-banged SPI MOSI GPIO (only used when `rx_gpio_pin` is set)    |
+| `spi_miso`       | `19`                    | CC1101 bit-banged SPI MISO GPIO (only used when `rx_gpio_pin` is set)    |
+| `spi_csn`        | `16`                    | CC1101 bit-banged SPI chip-select GPIO (only used when `rx_gpio_pin` is set) |
+| `mqtt_server`    | (none)                  | MQTT broker host/IP. Leave blank to disable MQTT entirely.              |
+| `mqtt_port`      | `1883`                  | MQTT broker port (only used when `mqtt_server` is set)                  |
+| `mqtt_user`      | (none)                  | MQTT broker username, if the broker requires auth                       |
+| `mqtt_password`  | (none)                  | MQTT broker password, if the broker requires auth                       |
+| `mqtt_client_id` | `somfy-mqtt-bridge`     | MQTT client ID — must be unique if you run more than one Pi-Somfy instance against the same broker |
 
 ### Physical remote receiver (optional)
 
@@ -43,6 +48,15 @@ practice on Home Assistant OS. Power down the Pi, read the Micro-SD card
 on another computer (it mounts as a normal FAT32 `boot`/`bootfs` drive),
 add `dtparam=spi=on` to the bottom of `config.txt`, then reinsert the card
 and power the Pi back on.
+
+### MQTT (optional)
+
+Setting `mqtt_server` enables the MQTT bridge alongside the web UI, publishing
+Home Assistant MQTT auto-discovery for every shutter (cover entities with
+live position and open/closing state) to the broker at `mqtt_server`. Useful
+if you already run a broker for other devices and want push-based updates
+instead of the custom integration's REST polling. Leave `mqtt_server` blank
+to run without MQTT, exactly as before.
 
 ## Web UI
 
@@ -69,8 +83,8 @@ Shutter configuration and rolling codes are stored in `/data/operateShutters.con
 
 ## Notes
 
-- This add-on runs Pi-Somfy with the web interface and scheduler only (no MQTT, no Alexa emulation)
-- For MQTT or Alexa integration, run Pi-Somfy standalone on a dedicated Raspberry Pi
+- This add-on runs Pi-Somfy with the web interface, scheduler, and (if `mqtt_server` is set) MQTT — no Alexa emulation
+- For Alexa integration, run Pi-Somfy standalone on a dedicated Raspberry Pi
 - Shutter position is estimated based on movement timing, but persists across restarts (saved to `/data/operateShutters.conf`'s `[ShutterPositions]` section as it changes)
 
 ## Support

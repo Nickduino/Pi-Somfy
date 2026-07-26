@@ -37,6 +37,8 @@ options:
   spi_mosi: 20
   spi_miso: 19
   spi_csn: 16
+  mqtt_port: 1883
+  mqtt_client_id: "somfy-mqtt-bridge"
 schema:
   gpio_pin: "int(0,27)"
   rx_gpio_pin: "int(0,27)?"
@@ -44,5 +46,10 @@ schema:
   spi_mosi: "int(0,27)"
   spi_miso: "int(0,27)"
   spi_csn: "int(0,27)"
+  mqtt_server: "str?"
+  mqtt_port: "int(1,65535)"
+  mqtt_user: "str?"
+  mqtt_password: "password?"
+  mqtt_client_id: "str"
 discovery:
   - pi_somfy
