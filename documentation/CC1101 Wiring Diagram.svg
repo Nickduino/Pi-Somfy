@@ -5,8 +5,8 @@
     .board-sub   { font: 500 10.5px/1 ui-monospace, "SF Mono", Consolas, monospace; fill: #6b7268; }
 
     .pinno      { font: 600 8.5px/1 ui-monospace, "SF Mono", Consolas, monospace; fill: #b9c9bd; }
-    .pinlabel-l, .pinlabel-r { font: 500 10.5px/1 ui-monospace, "SF Mono", Consolas, monospace; fill: #b9c9bd; }
-    .pinlabel-l.used, .pinlabel-r.used { fill: #eef2ec; font-weight: 700; }
+    .pinlabel-l, .pinlabel-r { font: 500 10.5px/1 ui-monospace, "SF Mono", Consolas, monospace; fill: #6b7268; }
+    .pinlabel-l.used, .pinlabel-r.used { fill: #1b201c; font-weight: 700; }
 
     .pin { fill: #4b5750; stroke: none; }
     .pin.used { stroke-width: 2.5; fill: #eef2ec; }
@@ -20,6 +20,11 @@
     .ant { stroke: #6b7268; stroke-width: 3; fill: none; stroke-linecap: round; }
     .sma { fill: #c9a25e; }
   </style>
+
+  <!-- Solid background: this file is embedded directly (not inside a
+       themed page), so it needs an explicit background rather than
+       relying on transparency to pick up a light backdrop. -->
+  <rect x="0" y="-34" width="970" height="619" fill="#ffffff"/>
 
   <!-- Raspberry Pi header block -->
   <rect x="152" y="18" width="60" height="512" rx="6" class="pcb-block"/>
