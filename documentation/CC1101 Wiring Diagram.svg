@@ -33,9 +33,9 @@
 
   <!-- 40 pins -->
   <text x="150" y="44" text-anchor="end" class="pinlabel-l">3V3</text>
-  <circle cx="168" cy="40" r="5" class="pin used" style="stroke:#b8763c; opacity:0.55" data-pin="1"/>
+  <circle cx="168" cy="40" r="5" class="pin used" style="stroke:#fb8c00; opacity:0.55" data-pin="1"/>
   <text x="168" y="31" text-anchor="middle" class="pinno">1</text>
-  <circle cx="196" cy="40" r="5" class="pin used" style="stroke:#b23b3b" data-pin="2"/>
+  <circle cx="196" cy="40" r="5" class="pin used" style="stroke:#e53935" data-pin="2"/>
   <text x="196" y="31" text-anchor="middle" class="pinno">2</text>
   <text x="214" y="44" text-anchor="start" class="pinlabel-r used">5V</text>
 
@@ -54,14 +54,14 @@
   <text x="214" y="94" text-anchor="start" class="pinlabel-r">GND</text>
 
   <text x="150" y="119" text-anchor="end" class="pinlabel-l used">GPIO4</text>
-  <circle cx="168" cy="115" r="5" class="pin used" style="stroke:#b23e73" data-pin="7"/>
+  <circle cx="168" cy="115" r="5" class="pin used" style="stroke:#d81b60" data-pin="7"/>
   <text x="168" y="106" text-anchor="middle" class="pinno">7</text>
   <circle cx="196" cy="115" r="5" class="pin" data-pin="8"/>
   <text x="196" y="106" text-anchor="middle" class="pinno">8</text>
   <text x="214" y="119" text-anchor="start" class="pinlabel-r">GPIO14</text>
 
   <text x="150" y="144" text-anchor="end" class="pinlabel-l used">GND</text>
-  <circle cx="168" cy="140" r="5" class="pin used" style="stroke:#363b35" data-pin="9"/>
+  <circle cx="168" cy="140" r="5" class="pin used" style="stroke:#8d5524" data-pin="9"/>
   <text x="168" y="131" text-anchor="middle" class="pinno">9</text>
   <circle cx="196" cy="140" r="5" class="pin" data-pin="10"/>
   <text x="196" y="131" text-anchor="middle" class="pinno">10</text>
@@ -89,7 +89,7 @@
   <text x="214" y="219" text-anchor="start" class="pinlabel-r">GPIO23</text>
 
   <text x="150" y="244" text-anchor="end" class="pinlabel-l used">3V3</text>
-  <circle cx="168" cy="240" r="5" class="pin used" style="stroke:#b8763c" data-pin="17"/>
+  <circle cx="168" cy="240" r="5" class="pin used" style="stroke:#fb8c00" data-pin="17"/>
   <text x="168" y="231" text-anchor="middle" class="pinno">17</text>
   <circle cx="196" cy="240" r="5" class="pin" data-pin="18"/>
   <text x="196" y="231" text-anchor="middle" class="pinno">18</text>
@@ -152,23 +152,23 @@
   <text x="214" y="444" text-anchor="start" class="pinlabel-r">GND</text>
 
   <text x="150" y="469" text-anchor="end" class="pinlabel-l used">GPIO19</text>
-  <circle cx="168" cy="465" r="5" class="pin used" style="stroke:#3f9e5e" data-pin="35"/>
+  <circle cx="168" cy="465" r="5" class="pin used" style="stroke:#43a047" data-pin="35"/>
   <text x="168" y="456" text-anchor="middle" class="pinno">35</text>
-  <circle cx="196" cy="465" r="5" class="pin used" style="stroke:#8a4fb0" data-pin="36"/>
+  <circle cx="196" cy="465" r="5" class="pin used" style="stroke:#8e24aa" data-pin="36"/>
   <text x="196" y="456" text-anchor="middle" class="pinno">36</text>
   <text x="214" y="469" text-anchor="start" class="pinlabel-r used">GPIO16</text>
 
   <text x="150" y="494" text-anchor="end" class="pinlabel-l used">GPIO26</text>
-  <circle cx="168" cy="490" r="5" class="pin used" style="stroke:#2f9ea3" data-pin="37"/>
+  <circle cx="168" cy="490" r="5" class="pin used" style="stroke:#00acc1" data-pin="37"/>
   <text x="168" y="481" text-anchor="middle" class="pinno">37</text>
-  <circle cx="196" cy="490" r="5" class="pin used" style="stroke:#a68a35" data-pin="38"/>
+  <circle cx="196" cy="490" r="5" class="pin used" style="stroke:#c0ca33" data-pin="38"/>
   <text x="196" y="481" text-anchor="middle" class="pinno">38</text>
   <text x="214" y="494" text-anchor="start" class="pinlabel-r used">GPIO20</text>
 
   <text x="150" y="519" text-anchor="end" class="pinlabel-l used">GND</text>
-  <circle cx="168" cy="515" r="5" class="pin used" style="stroke:#363b35" data-pin="39"/>
+  <circle cx="168" cy="515" r="5" class="pin used" style="stroke:#8d5524" data-pin="39"/>
   <text x="168" y="506" text-anchor="middle" class="pinno">39</text>
-  <circle cx="196" cy="515" r="5" class="pin used" style="stroke:#3f6fb0" data-pin="40"/>
+  <circle cx="196" cy="515" r="5" class="pin used" style="stroke:#1e88e5" data-pin="40"/>
   <text x="196" y="506" text-anchor="middle" class="pinno">40</text>
   <text x="214" y="519" text-anchor="start" class="pinlabel-r used">GPIO21</text>
 
@@ -177,17 +177,17 @@
   <text x="730" y="-13" class="board-label" text-anchor="middle">RF Transmitter</text>
   <text x="730" y="11" class="board-sub" text-anchor="middle">433.42 MHz + oscillator swap</text>
 
-  <path class="wire" style="stroke:#363b35" d="M168,140 C 340,140 480,55 700,55"/>
-  <path class="wire" style="stroke:#b23b3b" d="M196,40 C 340,40 480,85 700,85"/>
-  <path class="wire" style="stroke:#b23e73" d="M168,115 C 340,115 480,115 700,115"/>
+  <path class="wire" style="stroke:#8d5524" d="M168,140 C 340,140 480,55 700,55"/>
+  <path class="wire" style="stroke:#e53935" d="M196,40 C 340,40 480,85 700,85"/>
+  <path class="wire" style="stroke:#d81b60" d="M168,115 C 340,115 480,115 700,115"/>
 
-  <circle cx="700" cy="55" r="5" class="pin used" style="stroke:#363b35"/>
+  <circle cx="700" cy="55" r="5" class="pin used" style="stroke:#8d5524"/>
   <text x="715" y="59" text-anchor="start" class="cc-pinlabel">GND</text>
 
-  <circle cx="700" cy="85" r="5" class="pin used" style="stroke:#b23b3b"/>
+  <circle cx="700" cy="85" r="5" class="pin used" style="stroke:#e53935"/>
   <text x="715" y="89" text-anchor="start" class="cc-pinlabel">VCC (5V)</text>
 
-  <circle cx="700" cy="115" r="5" class="pin used" style="stroke:#b23e73"/>
+  <circle cx="700" cy="115" r="5" class="pin used" style="stroke:#d81b60"/>
   <text x="715" y="119" text-anchor="start" class="cc-pinlabel">DATA</text>
 
   <!-- CC1101 module block background (drawn before wires so wire endpoints
@@ -198,40 +198,40 @@
 
   <!-- Wires: Pi pin -> CC1101 pin (VCC defaults to pin 17; pin 1 is the
        dimmed alternate, no wire) -->
-  <path class="wire" style="stroke:#b8763c" d="M168,240 C 340,240 444,352 730,352"/>
-  <path class="wire" style="stroke:#363b35" d="M168,515 C 320,515 444,352 700,352"/>
-  <path class="wire" style="stroke:#2f9ea3" d="M168,490 C 340,490 484,382 700,382"/>
-  <path class="wire" style="stroke:#8a4fb0" d="M196,465 C 360,465 504,382 730,382"/>
-  <path class="wire" style="stroke:#3f6fb0" d="M196,515 C 380,515 524,412 700,412"/>
-  <path class="wire" style="stroke:#a68a35" d="M196,490 C 380,490 544,412 730,412"/>
-  <path class="wire" style="stroke:#3f9e5e" d="M168,465 C 340,465 524,442 700,442"/>
+  <path class="wire" style="stroke:#fb8c00" d="M168,240 C 340,240 444,352 730,352"/>
+  <path class="wire" style="stroke:#8d5524" d="M168,515 C 320,515 444,352 700,352"/>
+  <path class="wire" style="stroke:#00acc1" d="M168,490 C 340,490 484,382 700,382"/>
+  <path class="wire" style="stroke:#8e24aa" d="M196,465 C 360,465 504,382 730,382"/>
+  <path class="wire" style="stroke:#1e88e5" d="M196,515 C 380,515 524,412 700,412"/>
+  <path class="wire" style="stroke:#c0ca33" d="M196,490 C 380,490 544,412 730,412"/>
+  <path class="wire" style="stroke:#43a047" d="M168,465 C 340,465 524,442 700,442"/>
 
   <!-- CC1101 pins (2 cols x 4 rows), numbered per silkscreen -->
-  <circle cx="700" cy="352" r="5" class="pin used" style="stroke:#363b35"/>
+  <circle cx="700" cy="352" r="5" class="pin used" style="stroke:#8d5524"/>
   <text x="700" y="343" text-anchor="middle" class="cc-pinno">1</text>
   <text x="685" y="356" text-anchor="end" class="cc-pinlabel">GND</text>
 
-  <circle cx="730" cy="352" r="5" class="pin used" style="stroke:#b8763c"/>
+  <circle cx="730" cy="352" r="5" class="pin used" style="stroke:#fb8c00"/>
   <text x="730" y="343" text-anchor="middle" class="cc-pinno">2</text>
   <text x="745" y="356" text-anchor="start" class="cc-pinlabel">VCC</text>
 
-  <circle cx="700" cy="382" r="5" class="pin used" style="stroke:#2f9ea3"/>
+  <circle cx="700" cy="382" r="5" class="pin used" style="stroke:#00acc1"/>
   <text x="700" y="373" text-anchor="middle" class="cc-pinno">3</text>
   <text x="685" y="386" text-anchor="end" class="cc-pinlabel">GDO0</text>
 
-  <circle cx="730" cy="382" r="5" class="pin used" style="stroke:#8a4fb0"/>
+  <circle cx="730" cy="382" r="5" class="pin used" style="stroke:#8e24aa"/>
   <text x="730" y="373" text-anchor="middle" class="cc-pinno">4</text>
   <text x="745" y="386" text-anchor="start" class="cc-pinlabel">CSN</text>
 
-  <circle cx="700" cy="412" r="5" class="pin used" style="stroke:#3f6fb0"/>
+  <circle cx="700" cy="412" r="5" class="pin used" style="stroke:#1e88e5"/>
   <text x="700" y="403" text-anchor="middle" class="cc-pinno">5</text>
   <text x="685" y="416" text-anchor="end" class="cc-pinlabel">SCK</text>
 
-  <circle cx="730" cy="412" r="5" class="pin used" style="stroke:#a68a35"/>
+  <circle cx="730" cy="412" r="5" class="pin used" style="stroke:#c0ca33"/>
   <text x="730" y="403" text-anchor="middle" class="cc-pinno">6</text>
   <text x="745" y="416" text-anchor="start" class="cc-pinlabel">MOSI</text>
 
-  <circle cx="700" cy="442" r="5" class="pin used" style="stroke:#3f9e5e"/>
+  <circle cx="700" cy="442" r="5" class="pin used" style="stroke:#43a047"/>
   <text x="700" y="433" text-anchor="middle" class="cc-pinno">7</text>
   <text x="685" y="446" text-anchor="end" class="cc-pinlabel">MISO</text>
 
