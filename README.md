@@ -40,18 +40,33 @@ OK. now this all should look like this. Note that some of the pictures are a bit
 
 ### 2.1 Receiver (optional) — tracking physical remotes
 
-Everything above covers sending commands. Optionally, Pi-Somfy can also
-*listen* for presses on your existing physical Somfy remotes: a small
-receiver module decodes the same RTS radio protocol your remotes already
-speak, so pressing one updates Pi-Somfy's tracked shutter position (and
-Home Assistant, via MQTT or the custom component) immediately — not just
+Everything above (§2) covers *sending* commands, and is all you need to
+operate your shutters from Pi-Somfy. This section adds an optional extra:
+*listening* for presses on your existing physical Somfy remotes, so
+pressing one updates Pi-Somfy's tracked shutter position (and Home
+Assistant, via MQTT or the custom component) immediately — not just
 commands issued through the app itself.
 
-This needs a second, separate piece of hardware: a CC1101 transceiver
-module (~$3) tuned in software to exactly 433.42 MHz. SPI is bit-banged on
-ordinary GPIOs and only used once at startup, so no host `config.txt`
-changes or reboots are needed. Match module pins by silkscreen **label**,
-not position (MOSI may be printed `SI`, MISO `SO`):
+**This is purely additive — it doesn't replace or change anything above.**
+Your existing RF transmitter (with its oscillator swap) stays exactly as
+it is; the receiver is a second, independent piece of hardware you add
+alongside it. And unlike the transmitter, **the receiver needs no
+soldering at all**: CC1101 modules are sold as ready-made breakout boards
+with header pins, so it's just a few jumper wires straight into the Pi's
+GPIO header.
+
+#### What to buy
+
+Any CC1101 breakout module works, as long as you can match its pins to
+the table below. This is the exact module used to build and test this
+feature: [CC1101 433 MHz module (AliExpress)](https://he.aliexpress.com/item/1005005933919297.html).
+You'll also want a handful of female-to-female jumper wires to connect it
+to the Pi (the same kind used for the transmitter in §2).
+
+#### Wiring
+
+Match module pins by silkscreen **label**, not position — layouts vary
+between sellers, and MOSI/MISO are sometimes printed as `SI`/`SO` instead:
 
 | CC1101 pin | Signal | Default GPIO | Physical pin (Pi 4) |
 |---|---|---|---|
@@ -65,17 +80,36 @@ not position (MOSI may be printed `SI`, MISO `SO`):
 | GDO2 | — | not connected | — |
 | ANT | antenna | — | 17 cm solid-core wire, **required** |
 
-To enable it, set `RXGPIO` (and, if wired to non-default pins,
-`RXSpiSCK`/`RXSpiMOSI`/`RXSpiMISO`/`RXSpiCSN`) in `operateShutters.conf`'s
-`[General]` section — leave `RXGPIO` unset/commented out to run without a
-receiver, exactly as before. If you're running the Home Assistant add-on,
-the same options are exposed directly in its configuration page as
-`rx_gpio_pin`/`spi_sck`/`spi_mosi`/`spi_miso`/`spi_csn`.
+![Raspberry Pi 4 GPIO wiring for the RF transmitter and CC1101 receiver](documentation/CC1101%20Wiring%20Diagram.svg)
 
-Once enabled, pair a physical remote to a shutter from the web UI's
-"Physical Remotes" section (see §5 below): press a button on the remote,
-find it listed under "Recently Heard", and assign it to one or more
-shutters.
+*(Shown together for a complete GPIO reference — the transmitter wiring above is the same setup from §2, unchanged.)*
+
+#### Step-by-step setup
+
+1. Buy a CC1101 module (see above) and some jumper wires.
+2. **Power off the Pi**, then wire the module's 6 pins per the table above.
+3. **Enable SPI on the Pi itself**, even though it's bit-banged over
+   ordinary GPIOs rather than the Pi's dedicated hardware SPI peripheral —
+   in practice (confirmed on Home Assistant OS) the receiver still needs
+   the `spi` device-tree overlay active, or it won't work:
+   - Power down the Pi, remove the Micro-SD card, and read it on another
+     computer (it mounts as a normal FAT32 drive, `boot`/`bootfs`).
+   - Open `config.txt` in a text editor, add `dtparam=spi=on` at the
+     bottom, and save.
+   - Reinsert the SD card into the Pi and power it back on.
+4. Enable it in config: set `RXGPIO = 26` in `operateShutters.conf`'s
+   `[General]` section (and `RXSpiSCK`/`RXSpiMOSI`/`RXSpiMISO`/`RXSpiCSN`
+   too, only if you wired it to different pins than the table above).
+   Running the Home Assistant add-on instead? The same options are on its
+   configuration page as `rx_gpio_pin`/`spi_sck`/`spi_mosi`/`spi_miso`/`spi_csn`
+   — no manual config file editing needed.
+5. Restart Pi-Somfy (or the add-on).
+6. Pair a physical remote to a shutter from the web UI's "Physical
+   Remotes" section (see §5 below): press a button on the remote, find it
+   listed under "Recently Heard", and assign it to one or more shutters.
+
+Leave `RXGPIO` unset/commented out (or `rx_gpio_pin` blank in the add-on)
+to run without a receiver at all, exactly as before this feature existed.
 
 ## 3 Software
 
@@ -246,6 +280,8 @@ Click the "Add" button, select the name for your shutter (this is also the name 
 1. Finally, it's time to program your shutters schedule. To do so, use the "Scheduled Operations" menu. <br/>![Screenshot](documentation/p3.png)<br/>
 
 1. If you've wired up the optional CC1101 receiver (§2.1), pair your physical remotes using the "Physical Remotes" menu. Press a button on the remote, find it listed under "Recently Heard", click the assign icon, and pick which shutter(s) it should control.
+
+1. If you set up the CC1101 receiver, also set each shutter's "My" position — essential so Pi-Somfy's tracked position stays correct when a physical remote's STOP/MY button sends the shutter there. In "Add/Remove Shutters", click the Configure (wrench) icon, open "Setting the 'My' Position", and enter the matching percentage (a warning shows on Manual Operation until you do). To find the right number: send the shutter to 0% first (the one position Pi-Somfy tracks exactly), then use the wizard's own up/down buttons — not the remote — to reach the physical My position, and copy the percentage shown on Manual Operation into the Save field. <br/>![Screenshot](documentation/p5.png)<br/>
 
 
 ## 6 Alexa Integration
