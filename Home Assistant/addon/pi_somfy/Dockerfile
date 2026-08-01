@@ -34,30 +34,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && apt-get purge -y --auto-remove make gcc g++ libc6-dev swig python3-dev \
     && rm -rf /var/lib/apt/lists/*
 
-# Cache-busting for the clone below: Docker caches `RUN git clone` by the
-# command's literal text, not by checking whether the remote branch has new
-# commits — without this, a rebuild can silently reuse a stale clone from
-# before your latest push (and finish suspiciously fast). ADD-from-URL is
-# different: Docker re-checks the URL's ETag/Last-Modified on every build, so
-# using GitHub's commit API here invalidates the cache below whenever the
-# branch actually moves. Testing-only — remove this block alongside
-# REPO_URL/GIT_REF once this merges upstream.
-# IMPORTANT: the branch name in this URL must always match GIT_REF below —
-# if you switch testing branches, update BOTH or this silently stops
-# busting the cache (confirmed: this has drifted out of sync before, and
-# every rebuild kept re-serving a stale clone from before the branch switch
-# with no visible error).
-ADD https://api.github.com/repos/orren5/Pi-Somfy/commits/feature/add_mqtt_option /tmp/branch_head.json
-
-# Clone Pi-Somfy source at build time. Defaults below point at this fork's
-# testing branch — revert REPO_URL to https://github.com/Nickduino/Pi-Somfy.git
-# and GIT_REF to v${BUILD_VERSION} once this merges upstream and a release
-# tag exists. Override either at build time with:
-#   docker build --build-arg REPO_URL=... --build-arg GIT_REF=... ...
+# Clone Pi-Somfy source at build time
 ARG BUILD_VERSION
-ARG REPO_URL=https://github.com/orren5/Pi-Somfy.git
-ARG GIT_REF=feature/add_mqtt_option
-RUN git clone --branch ${GIT_REF} --depth 1 ${REPO_URL} /somfy
+RUN git clone --branch v${BUILD_VERSION} --depth 1 https://github.com/Nickduino/Pi-Somfy.git /somfy
 
 WORKDIR /somfy
 
