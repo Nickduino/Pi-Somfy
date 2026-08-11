@@ -1,11 +1,21 @@
 #!/usr/bin/python3
+# CC1101 RF transmitter backend (optional).
+#
+# Used only when RFBackend = cc1101 is set in operateShutters.conf.
+# Existing installations using the raw 433 MHz GPIO transmitter do not need
+# this file and can ignore it entirely — it is never imported at startup.
+#
+# Hardware: E07-M1101D-SMA (or any CC1101 breakout) connected over SPI.
+# See README §2.2 for the full wiring table and config keys.
+#
+# Extra dependency (install once on the Pi before switching to this backend):
+#   pip install cc1101
 
 import time
 
-import cc1101
-
 
 class CC1101Config:
+    # Default values match the E07-M1101D-SMA on Raspberry Pi SPI0.
     DEFAULT_FREQUENCY_MHZ = 433.42
     DEFAULT_SPI_BUS = 0
     DEFAULT_SPI_DEVICE = 0
@@ -85,7 +95,18 @@ class CC1101Config:
 
 
 class CC1101Transmitter:
+    # waveform_transmitter is a Raw433Transmitter that drives the GDO0 GPIO
+    # waveform while the CC1101 holds the carrier at 433.42 MHz.
     def __init__(self, config, waveform_transmitter):
+        try:
+            import cc1101
+        except ImportError:
+            raise ImportError(
+                "The 'cc1101' package is required when RFBackend = cc1101.\n"
+                "Install it on the Pi with:  pip install cc1101\n"
+                "Or switch back to the default by removing 'RFBackend' from "
+                "operateShutters.conf (or setting it to 'raw_433')."
+            ) from None
         self.config = config
         self.waveform_transmitter = waveform_transmitter
         self.radio = cc1101.CC1101(
