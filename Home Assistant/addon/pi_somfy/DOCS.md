@@ -19,9 +19,30 @@ This add-on runs [Pi-Somfy](https://github.com/Nickduino/Pi-Somfy) directly on y
 
 ## Configuration
 
-| Option     | Default | Description                                    |
-|------------|---------|------------------------------------------------|
-| `gpio_pin` | `4`     | GPIO pin number for the 433.42 MHz transmitter |
+| Option        | Default | Description                                                              |
+|---------------|---------|---------------------------------------------------------------------------|
+| `gpio_pin`    | `4`     | GPIO pin number for the 433.42 MHz transmitter                          |
+| `rx_gpio_pin` | (none)  | GPIO wired to a CC1101 receiver's data output. Leave blank to disable the physical-remote receiver entirely. |
+| `spi_sck`     | `21`    | CC1101 bit-banged SPI clock GPIO (only used when `rx_gpio_pin` is set)   |
+| `spi_mosi`    | `20`    | CC1101 bit-banged SPI MOSI GPIO (only used when `rx_gpio_pin` is set)    |
+| `spi_miso`    | `19`    | CC1101 bit-banged SPI MISO GPIO (only used when `rx_gpio_pin` is set)    |
+| `spi_csn`     | `16`    | CC1101 bit-banged SPI chip-select GPIO (only used when `rx_gpio_pin` is set) |
+
+### Physical remote receiver (optional)
+
+Setting `rx_gpio_pin` enables listening for physical Somfy RTS remote button
+presses via a CC1101 receiver module, so a physical remote and the app stay
+in sync. Pair a physical remote to a shutter from the web UI's "Physical
+Remotes" section: press a button on the remote, find it listed under
+"Recently Heard", and assign it to one or more shutters.
+
+**Before enabling `rx_gpio_pin`, SPI must be enabled on the host**, even
+though the receiver bit-bangs SPI over ordinary GPIOs rather than using
+the Pi's dedicated hardware SPI peripheral — confirmed necessary in
+practice on Home Assistant OS. Power down the Pi, read the Micro-SD card
+on another computer (it mounts as a normal FAT32 `boot`/`bootfs` drive),
+add `dtparam=spi=on` to the bottom of `config.txt`, then reinsert the card
+and power the Pi back on.
 
 ## Web UI
 
@@ -50,7 +71,7 @@ Shutter configuration and rolling codes are stored in `/data/operateShutters.con
 
 - This add-on runs Pi-Somfy with the web interface and scheduler only (no MQTT, no Alexa emulation)
 - For MQTT or Alexa integration, run Pi-Somfy standalone on a dedicated Raspberry Pi
-- Shutter position tracking is estimated based on timing and is reset on restart
+- Shutter position is estimated based on movement timing, but persists across restarts (saved to `/data/operateShutters.conf`'s `[ShutterPositions]` section as it changes)
 
 ## Support
 

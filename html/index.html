@@ -228,6 +228,58 @@
                         </div>
                     </div>
                 </div>
+                <div class="accordion-item">
+                    <h2 class="accordion-header">
+                        <button class="accordion-button collapsed" type="button" data-toggle="collapse" data-target="#collapseFive" aria-expanded="false" aria-controls="collapseFive">
+                            <span class="icon me-2" data-icon="record-circle"></span>Physical Remotes <span id="remotesCount" class="badge text-bg-secondary ms-2"></span>
+                        </button>
+                    </h2>
+                    <div id="collapseFive" class="accordion-collapse collapse" data-parent="#accordion">
+                        <div class="accordion-body scroll">
+                             <div class="table-wrapper">
+                                 <table id="remotes" class="table table-bordered">
+                                     <thead>
+                                         <tr>
+                                             <th>Remote Address</th>
+                                             <th>Shutter(s)</th>
+                                             <th style="width:80px;white-space:nowrap">Actions
+                                                <div id="action_remotes" class="table-action">
+                                                    <a class="edit editRemote" title="Reassign" data-toggle="tooltip"><span class="icon" data-icon="pencil"></span></a>
+                                                    <a class="delete" title="Unassign" data-toggle="modal" data-target="#confirm-delete" data-tooltip="tooltip"><span class="icon" data-icon="trash"></span></a>
+                                                </div>
+                                             </th>
+                                         </tr>
+                                     </thead>
+                                     <tbody>
+                                     </tbody>
+                                 </table>
+                             </div>
+                             <hr>
+                             <div class="table-wrapper">
+                                 <div class="table-title">
+                                     <div class="row">
+                                         <div>Recently Heard (Unpaired)</div>
+                                     </div>
+                                 </div>
+                                 <table id="unheardRemotes" class="table table-bordered">
+                                     <thead>
+                                         <tr>
+                                             <th>Remote Address</th>
+                                             <th>Last Button</th>
+                                             <th style="width:80px;white-space:nowrap">Actions
+                                                <div id="action_unheard_remotes" class="table-action">
+                                                    <a class="assignRemoteBtn" title="Assign" data-toggle="tooltip"><span class="icon" data-icon="plus-lg"></span></a>
+                                                </div>
+                                             </th>
+                                         </tr>
+                                     </thead>
+                                     <tbody>
+                                     </tbody>
+                                 </table>
+                             </div>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
         <div class="modal" id="confirm-delete" tabindex="-1" aria-labelledby="confirmDeleteLabel" aria-hidden="true">
@@ -364,6 +416,12 @@
                                             </li>
                                             <li>Hint: You can return to the My position by pressing the Stop button when the shutter is not in motion.
                                             </li>
+                                            <li class="mt-2">Tell Pi-Somfy what position that was, so its own tracking matches the shutter's real stored My position:
+                                                <div class="input-group mt-1" style="max-width: 320px;">
+                                                    <input type="number" id="intermediatePositionInput" class="form-control" min="0" max="100" placeholder="0-100, e.g. 40">
+                                                    <button type="button" class="btn btn-primary" id="save-intermediate-position">Save</button>
+                                                </div>
+                                            </li>
                                         </ol>
                                     </div>
                                 </div>
@@ -377,9 +435,11 @@
                                 <div id="configClearMy" class="accordion-collapse collapse" data-parent="#configAccordion">
                                     <div class="accordion-body">
                                         <ol>
-                                            <li>Move the shutter to the My position: <button type="button" class="btn press-button-stop-short"><span class="icon" data-icon="bullseye"></span></button>. 
+                                            <li>Move the shutter to the My position: <button type="button" class="btn press-button-stop-short"><span class="icon" data-icon="bullseye"></span></button>.
                                             </li>
                                             <li>Press <button type="button" class="btn press-button-stop-long"><span class="icon" data-icon="floppy"></span></button> to clear the My position.
+                                            </li>
+                                            <li class="mt-2">Also clear it in Pi-Somfy's own tracking: <button type="button" class="btn" id="clear-intermediate-position"><span class="icon" data-icon="x-circle"></span></button>
                                             </li>
                                         </ol>
                                     </div>
@@ -389,6 +449,25 @@
                     </div>
                     <div style="clear: right;" class="modal-footer">
                         <button type="button" class="btn btn-success" id="configure-shutter-done" data-dismiss="modal">Done</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="modal" id="assign-remote" tabindex="-1" aria-labelledby="assignRemoteLabel" aria-hidden="true">
+            <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content">
+                    <div class="modal-header">
+                         <h4 class="modal-title" id="assignRemoteLabel">Assign Physical Remote</h4>
+                         <button type="button" class="btn-close" data-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        Remote address: <b id="assign-remote-address"></b><br><br>
+                        Select the shutter(s) this remote should control:<br>
+                        <select id="assignRemoteShutters" class="shuttersList" multiple="multiple"></select>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
+                        <button type="button" class="btn btn-success" id="assign-remote-save">Save</button>
                     </div>
                 </div>
             </div>

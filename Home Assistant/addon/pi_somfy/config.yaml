@@ -20,6 +20,7 @@ privileged:
   - SYS_RAWIO
 devices:
   - /dev/mem
+  - /dev/vcio
   - /dev/gpiochip0
   - /dev/gpiochip4
 map:
@@ -32,7 +33,16 @@ ports_description:
 watchdog: "http://[HOST]:[PORT:80]/cmd/getConfig"
 options:
   gpio_pin: 4
+  spi_sck: 21
+  spi_mosi: 20
+  spi_miso: 19
+  spi_csn: 16
 schema:
   gpio_pin: "int(0,27)"
+  rx_gpio_pin: "int(0,27)?"
+  spi_sck: "int(0,27)"
+  spi_mosi: "int(0,27)"
+  spi_miso: "int(0,27)"
+  spi_csn: "int(0,27)"
 discovery:
   - pi_somfy

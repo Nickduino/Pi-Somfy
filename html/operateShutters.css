@@ -562,6 +562,11 @@ button[class*="press-button-"]:hover { background-color: #dee2e6; box-shadow: va
 }
 .shutterRemote:hover { box-shadow: var(--shadow-md); transform: translateY(-2px); }
 .shutterRemote .name { text-align: center; font-size: 14px; font-weight: 700; color: #666; margin-bottom: 4px; }
+.shutterRemote .position { text-align: center; font-size: 20px; font-weight: 700; color: var(--color-dark); margin-bottom: 2px; }
+.shutterRemote .state { text-align: center; font-size: 12px; font-weight: 600; color: var(--color-primary); min-height: 1.2em; margin-bottom: 2px; }
+.shutterRemote .myPosition { text-align: center; font-size: 11px; font-weight: 600; color: #999; min-height: 1.2em; margin-bottom: 2px; }
+.shutterRemote .myPosition.unset { color: var(--color-warning); }
+.shutterRemote.moving { box-shadow: 0 0 0 2px var(--color-primary); }
 .shutterRemote a { display: block; margin-left: auto; margin-right: auto; }
 .shutterRemote a svg { width: 60px; height: auto; }
 

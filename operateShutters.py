@@ -129,6 +129,7 @@ class Shutter(MyLog):
     def __init__(self, log = None, config = None):
         super(Shutter, self).__init__()
         self.lock = threading.Lock()
+        self.transmitting = threading.Event()
         if log is not None:
             self.log = log
         if config is not None:
@@ -140,8 +141,18 @@ class Shutter(MyLog):
            self.TXGPIO=4 # 433.42 MHz emitter on GPIO 4
         self.frame = bytearray(7)
         self.callback = []
+        self.movementCallback = []
+        self.movementStateList = {}
         self.shutterStateList = {}
         self.shutterStateLock = threading.Lock()
+
+        # Seed persisted positions, only for shutters
+        # that both still exist in [Shutters] and have a settled position
+        # recorded in [ShutterPositions], so getShutterState's lazy-init
+        # fallback only ever applies to shutters that have never settled.
+        for shutterId, position in self.config.ShutterPositions.items():
+            if shutterId in self.config.Shutters:
+                self.shutterStateList[shutterId] = self.ShutterState(position)
 
     def getShutterState(self, shutterId, initialPosition = None):
         with self.shutterStateLock:
@@ -153,10 +164,47 @@ class Shutter(MyLog):
         state = self.getShutterState(shutterId, 0)
         return state.position
 
+    # Live-interpolated position while a move is in progress, for UI display
+    # only. Mirrors _simulateStop's elapsed-time/direction math (the same
+    # "how far did it get" estimate a MY-press stop would compute) but never
+    # mutates state or settles a position — internal logic that decides
+    # partial-move direction etc. keeps using getPosition()'s last-settled
+    # value, since an in-flight estimate isn't precise enough to act on.
+    def getDisplayPosition(self, shutterId):
+        state = self.getShutterState(shutterId, 0)
+        movementState = self.movementStateList.get(shutterId)
+        if movementState not in ('opening', 'closing'):
+            return state.position
+
+        secondsSinceLastCommand = time.monotonic() - state.lastCommandTime
+        if secondsSinceLastCommand <= 0:
+            return state.position
+
+        if movementState == 'opening':
+            duration = self.config.Shutters[shutterId]['durationUp']
+            if duration <= 0 or secondsSinceLastCommand >= duration:
+                return 100   # elapsed time already covers the full travel —
+                             # report the target, not the stale pre-move
+                             # position, even if settling hasn't fired yet
+            durationPercentage = secondsSinceLastCommand / duration * 100
+            estimated = state.position + durationPercentage if state.position > 0 else durationPercentage
+            return min(100, int(round(estimated)))
+        else:
+            duration = self.config.Shutters[shutterId]['durationDown']
+            if duration <= 0 or secondsSinceLastCommand >= duration:
+                return 0
+            durationPercentage = secondsSinceLastCommand / duration * 100
+            estimated = state.position - durationPercentage if state.position < 100 else 100 - durationPercentage
+            return max(0, int(round(estimated)))
+
     def setPosition(self, shutterId, newPosition):
         state = self.getShutterState(shutterId)
         with self.shutterStateLock:
             state.position = newPosition
+        # Every call site of setPosition() is already a "position settled"
+        # moment (end of waitAndSetFinalPosition, stop()'s immediate branch,
+        # the partial-move completions).
+        self.config.WriteValue(shutterId, str(newPosition), section="ShutterPositions")
         for function in self.callback:
             function(shutterId, newPosition)
 
@@ -170,16 +218,28 @@ class Shutter(MyLog):
         # Only set new position if registerCommand has not been called in between
         if state.lastCommandTime == oldLastCommandTime:
             self.LogDebug("["+self.config.Shutters[shutterId]['name']+"] Set new final position: " + str(newPosition))
+            # A full/partial move that runs out its timer uninterrupted has
+            # genuinely stopped — fire this before setPosition() so, as
+            # elsewhere, the position callback's more precise open/closed
+            # inference has the last word. Without this, 'opening'/'closing'
+            # would stay stuck forever once a move completes naturally,
+            # since nothing else clears it for this (non-explicit-stop) path.
+            self._fireMovement(shutterId, 'stopped')
             self.setPosition(shutterId, newPosition)
         else:
             self.LogDebug("["+self.config.Shutters[shutterId]['name']+"] Discard final position. Position is now: " + str(state.position))
 
     def lower(self, shutterId):
-        state = self.getShutterState(shutterId, 100)
-
         self.LogInfo("["+self.config.Shutters[shutterId]['name']+"] Going down")
         self.sendCommand(shutterId, self.buttonDown, self.config.SendRepeat)
+        self._simulateDown(shutterId)
+
+    # Position-model update for a "down" command, shared by the TX path
+    # (lower(), above) and the physical-remote path (recordExternalCommand).
+    def _simulateDown(self, shutterId):
+        state = self.getShutterState(shutterId, 100)
         state.registerCommand('down')
+        self._fireMovement(shutterId, 'closing')
 
         # wait and set final position only if not interrupted in between
         timeToWait = state.position/100*self.config.Shutters[shutterId]['durationDown']
@@ -192,18 +252,25 @@ class Shutter(MyLog):
         self.LogInfo("["+self.config.Shutters[shutterId]['name']+"] Going down") 
         self.sendCommand(shutterId, self.buttonDown, self.config.SendRepeat)
         state.registerCommand('down')
+        self._fireMovement(shutterId, 'closing')
         time.sleep((state.position-percentage)/100*self.config.Shutters[shutterId]['durationDown'])
         self.LogInfo("["+self.config.Shutters[shutterId]['name']+"] Stop at partial position requested")
         self.sendCommand(shutterId, self.buttonStop, self.config.SendRepeat)
 
+        self._fireMovement(shutterId, 'stopped')
         self.setPosition(shutterId, percentage)
 
     def rise(self, shutterId):
-        state = self.getShutterState(shutterId, 0)
-
         self.LogInfo("["+self.config.Shutters[shutterId]['name']+"] Going up")
         self.sendCommand(shutterId, self.buttonUp, self.config.SendRepeat)
+        self._simulateUp(shutterId)
+
+    # Position-model update for an "up" command, shared by the TX path
+    # (rise(), above) and the physical-remote path (recordExternalCommand).
+    def _simulateUp(self, shutterId):
+        state = self.getShutterState(shutterId, 0)
         state.registerCommand('up')
+        self._fireMovement(shutterId, 'opening')
 
         # wait and set final position only if not interrupted in between
         timeToWait = (100-state.position)/100*self.config.Shutters[shutterId]['durationUp']
@@ -216,51 +283,67 @@ class Shutter(MyLog):
         self.LogInfo("["+self.config.Shutters[shutterId]['name']+"] Going up")
         self.sendCommand(shutterId, self.buttonUp, self.config.SendRepeat)
         state.registerCommand('up')
+        self._fireMovement(shutterId, 'opening')
         time.sleep((percentage-state.position)/100*self.config.Shutters[shutterId]['durationUp'])
         self.LogInfo("["+self.config.Shutters[shutterId]['name']+"] Stop at partial position requested")
         self.sendCommand(shutterId, self.buttonStop, self.config.SendRepeat)
 
+        self._fireMovement(shutterId, 'stopped')
         self.setPosition(shutterId, percentage)
 
     def stop(self, shutterId):
-        state = self.getShutterState(shutterId, 50)
-
         self.LogInfo("["+self.config.Shutters[shutterId]['name']+"] Stopping")
         self.sendCommand(shutterId, self.buttonStop, self.config.SendRepeat)
+        self._simulateStop(shutterId)
+
+    # Position-model update for a "stop"/"my" command, shared by the TX path
+    # (stop(), above) and the physical-remote path (recordExternalCommand).
+    # Inherits the full MY-button ping-pong the motors implement from the
+    # elapsed-time/fallback logic below — no special-casing needed for
+    # physical presses.
+    def _simulateStop(self, shutterId):
+        state = self.getShutterState(shutterId, 50)
 
         self.LogDebug("["+shutterId+"] Previous position: " + str(state.position))
-        secondsSinceLastCommand = int(round(time.monotonic() - state.lastCommandTime))
-        self.LogDebug("["+shutterId+"] Seconds since last command: " + str(secondsSinceLastCommand))
 
         # Compute position based on time elapsed since last command & command direction
         setupDurationDown = self.config.Shutters[shutterId]['durationDown']
         setupDurationUp = self.config.Shutters[shutterId]['durationUp']
 
+        # Whether the shutter is genuinely moving right now comes from
+        # movementStateList (set by _simulateUp/_simulateDown, and cleared
+        # back to 'stopped' the instant ANY move settles — full, partial, or
+        # a previous MY-position correction), not from comparing elapsed
+        # time against the shutter's *full* 0-100 duration. That old
+        # elapsed-time heuristic misclassified a MY press shortly after a
+        # completed partial/MY move (which settles in less than the full
+        # duration) as "still mid-travel", computing a bogus interrupted
+        # position instead of correctly falling through to the MY-position
+        # logic below — the shutter was already stationary the whole time.
+        movementState = self.movementStateList.get(shutterId)
+        self.LogDebug("["+shutterId+"] Movement state: " + str(movementState))
+
         fallback = False
-        if state.lastCommandDirection == 'up':
-          if secondsSinceLastCommand > 0 and secondsSinceLastCommand < setupDurationUp:
-            durationPercentage = int(round(secondsSinceLastCommand/setupDurationUp * 100))
+        if movementState == 'opening':
+            secondsSinceLastCommand = time.monotonic() - state.lastCommandTime
+            self.LogDebug("["+shutterId+"] Seconds since last command: " + str(round(secondsSinceLastCommand, 2)))
+            durationPercentage = int(round(secondsSinceLastCommand/setupDurationUp * 100)) if setupDurationUp > 0 else 100
             self.LogDebug("["+shutterId+"] Up duration percentage: " + str(durationPercentage) + ", State position: "+ str(state.position))
             if state.position > 0: # after rise from previous position
                 newPosition = min (100 , state.position + durationPercentage)
             else: # after rise from fully closed
                 newPosition = durationPercentage
-          else:  #fallback
-            self.LogWarn("["+shutterId+"] Too much time since up command.")
-            fallback = True
-        elif state.lastCommandDirection == 'down':
-          if secondsSinceLastCommand > 0 and secondsSinceLastCommand < setupDurationDown:
-            durationPercentage = int(round(secondsSinceLastCommand/setupDurationDown * 100))
+        elif movementState == 'closing':
+            secondsSinceLastCommand = time.monotonic() - state.lastCommandTime
+            self.LogDebug("["+shutterId+"] Seconds since last command: " + str(round(secondsSinceLastCommand, 2)))
+            durationPercentage = int(round(secondsSinceLastCommand/setupDurationDown * 100)) if setupDurationDown > 0 else 100
             self.LogDebug("["+shutterId+"] Down duration percentage: " + str(durationPercentage) + ", State position: "+ str(state.position))
             if state.position < 100: # after lower from previous position
                 newPosition = max (0 , state.position - durationPercentage)
             else: # after down from fully opened
                 newPosition = 100 - durationPercentage
-          else:  #fallback
-            self.LogWarn("["+shutterId+"] Too much time since down command.")
-            fallback = True
-        else: # consecutive stops
-            self.LogWarn("["+shutterId+"] Stop pressed while stationary.")
+        else: # already stopped (fully, partially, or from a previous MY correction)
+            self.LogInfo("["+shutterId+"] Stop pressed while stationary.")
             fallback = True
 
         if fallback == True: # Let's assume it will end on the intermediate position ! If it exists !
@@ -272,14 +355,24 @@ class Shutter(MyLog):
                 self.LogInfo("["+shutterId+"] Motor expected to move to intermediate position "+str(intermediatePosition))
                 if state.position > intermediatePosition:
                     state.registerCommand('down')
+                    self._fireMovement(shutterId, 'closing')
                     timeToWait = abs(state.position - intermediatePosition) / 100*self.config.Shutters[shutterId]['durationDown']
                 else:
                     state.registerCommand('up')
+                    self._fireMovement(shutterId, 'opening')
                     timeToWait = abs(state.position - intermediatePosition) / 100*self.config.Shutters[shutterId]['durationUp']
                 # wait and set final intermediate position only if not interrupted in between
                 t = threading.Thread(target = self.waitAndSetFinalPosition, args = (shutterId, timeToWait, intermediatePosition))
                 t.start()
-                return
+                return   # genuinely moving again — not a stop; the settled state
+                         # reports via setPosition()'s existing position callback
+                         # when the thread completes, same as rise()/lower().
+
+        # Fire the movement event before setPosition(): if the computed position
+        # lands exactly on 0/100, setPosition()'s existing position callback
+        # publishes the more precise open/closed state, and should have the
+        # last word on the retained MQTT topic, not this 'stopped' event.
+        self._fireMovement(shutterId, 'stopped')
 
         # Save computed position
         self.setPosition(shutterId, newPosition)
@@ -297,6 +390,42 @@ class Shutter(MyLog):
     def registerCallBack(self, callbackFunction):
         self.callback.append(callbackFunction)
 
+    # Register for transient movement-state notifications ('opening'/
+    # 'closing'/'stopped'), fired identically for the TX/software path and
+    # the physical-remote path — complements registerCallBack's position-
+    # based open/closed/stopped signal with the "movement in progress"
+    # state nothing else reports today.
+    def registerMovementCallBack(self, callbackFunction):
+        self.movementCallback.append(callbackFunction)
+
+    def _fireMovement(self, shutterId, movementState):
+        self.movementStateList[shutterId] = movementState
+        for function in self.movementCallback:
+            function(shutterId, movementState)
+
+    # Last movement state fired for a shutter ('opening'/'closing'/'stopped'),
+    # or None if it's never moved this run — lets a REST poller (getStatus)
+    # see the same signal MQTT gets pushed, without needing its own callback.
+    def getMovementState(self, shutterId):
+        return self.movementStateList.get(shutterId)
+
+    # Update the position model for a button press heard from a physical RTS
+    # remote — dispatches to the same _simulate* methods the TX path uses,
+    # with no RF transmission.
+    def recordExternalCommand(self, shutterId, button):
+        name = self.config.Shutters[shutterId]['name']
+        if button == self.buttonUp:
+            self.LogInfo("["+name+"] Physical remote: UP")
+            self._simulateUp(shutterId)
+        elif button == self.buttonDown:
+            self.LogInfo("["+name+"] Physical remote: DOWN")
+            self._simulateDown(shutterId)
+        elif button == self.buttonStop:
+            self.LogInfo("["+name+"] Physical remote: STOP/MY")
+            self._simulateStop(shutterId)
+        else:
+            self.LogWarn("["+name+"] Physical remote: unhandled button 0x%X" % button)
+
     def sendCommand(self, shutterId, button, repetition): #Sending a frame
     # Sending more than two repetitions after the original frame means a button kept pressed and moves the blind in steps 
     # to adjust the tilt. Sending the original frame and three repetitions is the smallest adjustment, sending the original
@@ -307,6 +436,7 @@ class Shutter(MyLog):
        self.lock.acquire()
        try:
            self.LogDebug("sendCommand: Lock acquired")
+           self.transmitting.set()
            checksum = 0
 
            teleco = int(shutterId, 16)
@@ -410,6 +540,7 @@ class Shutter(MyLog):
 
                pi.stop()
        finally:
+           self.transmitting.clear()
            self.lock.release()
            self.LogDebug("sendCommand: Lock released")
 
@@ -520,6 +651,7 @@ class operateShutters(MyLog):
         self.schedule = Schedule(log = self.log, config = self.config)
         self.scheduler = None
         self.webServer = None
+        self.receiver = None
 
         if (args.echo == True):
             self.alexa = Alexa(kwargs={'log':self.log, 'shutter': self.shutter, 'config': self.config})
@@ -527,6 +659,11 @@ class operateShutters(MyLog):
         if (args.mqtt == True):
             from mqtt import MQTT
             self.mqtt = MQTT(kwargs={'log':self.log, 'shutter': self.shutter, 'config': self.config})
+
+        # Enabled when RXGPIO is present in [General] — no new CLI flag.
+        if not WINDOWS and self.config.RXGPIO is not None:
+            from receiver import Receiver
+            self.receiver = Receiver(kwargs={'log':self.log, 'shutter': self.shutter, 'config': self.config, 'console': self.console})
 
         self.ProcessCommand(args);
 
@@ -563,41 +700,53 @@ class operateShutters(MyLog):
            return False
 
        # pigpio path for Pi 1/2/3/4
+       # Deliberately not passing -m (disable alerts): -m silently prevents
+       # pi.callback() from ever delivering edge notifications, which the
+       # receiver (Receiver, when config.RXGPIO is set) needs.
+       # No sudo: __init__ already refused to run unless os.geteuid() == 0,
+       # so this process is already root in every deployment (standalone,
+       # systemd, or a container) — sudo here would just add a dependency
+       # this code doesn't need.
        if sys.version_info[0] < 3:
            import commands
-           status, process = commands.getstatusoutput('sudo pidof pigpiod')
+           status, process = commands.getstatusoutput('pidof pigpiod')
            if status:  #  it wasn't running, so start it
                self.LogInfo ("pigpiod was not running")
-               commands.getstatusoutput('sudo pigpiod -l -m')  # try to  start it
+               commands.getstatusoutput('pigpiod -l')  # try to  start it
                time.sleep(0.5)
                # check it again
-               status, process = commands.getstatusoutput('sudo pidof pigpiod')
+               status, process = commands.getstatusoutput('pidof pigpiod')
        else:
            import subprocess
-           status, process = subprocess.getstatusoutput('sudo pidof pigpiod')
+           status, process = subprocess.getstatusoutput('pidof pigpiod')
            if status:  #  it wasn't running, so start it
                self.LogInfo ("pigpiod was not running")
-               subprocess.getstatusoutput('sudo pigpiod -l -m')  # try to  start it
+               subprocess.getstatusoutput('pigpiod -l')  # try to  start it
                time.sleep(0.5)
                # check it again
-               status, process = subprocess.getstatusoutput('sudo pidof pigpiod')
+               status, process = subprocess.getstatusoutput('pidof pigpiod')
 
        if not status:  # if it was started successfully (or was already running)...
            pigpiod_process = process
            self.LogInfo ("pigpiod is running, process ID is {} ".format(pigpiod_process))
+           self.LogConsole("pigpiod is running, process ID is {} ".format(pigpiod_process))
 
            try:
                pi = pigpio.pi()  # local GPIO only
                if not pi.connected:
                    self.LogError("pigpio connection could not be established. Check logs to get more details.")
+                   self.LogConsole("pigpio connection could not be established.")
                    return False
                else:
                    self.LogInfo("pigpio's pi instantiated.")
+                   self.LogConsole("pigpio's pi instantiated.")
            except Exception as e:
                start_pigpiod_exception = str(e)
                self.LogError("problem instantiating pi: {}".format(start_pigpiod_exception))
+               self.LogConsole("problem instantiating pi: {}".format(start_pigpiod_exception))
        else:
            self.LogError("start pigpiod was unsuccessful.")
+           self.LogConsole("start pigpiod was unsuccessful (pidof pigpiod status={}).".format(status))
            return False
        return True
 
@@ -634,6 +783,9 @@ class operateShutters(MyLog):
              if (args.mqtt == True):
                  self.mqtt.daemon = True
                  self.mqtt.start()
+             if self.receiver is not None:
+                 self.receiver.daemon = True
+                 self.receiver.start()
              self.scheduler.join()
        elif ((args.shutterName != "") and (args.press)):
 
@@ -661,7 +813,10 @@ class operateShutters(MyLog):
              if (args.mqtt == True):
                  self.mqtt.daemon = True
                  self.mqtt.start()
-             self.webServer = FlaskAppWrapper(name='WebServer', static_url_path=os.path.dirname(os.path.realpath(__file__))+'/html', log = self.log, shutter = self.shutter, schedule = self.schedule, config = self.config)
+             if self.receiver is not None:
+                 self.receiver.daemon = True
+                 self.receiver.start()
+             self.webServer = FlaskAppWrapper(name='WebServer', static_url_path=os.path.dirname(os.path.realpath(__file__))+'/html', log = self.log, shutter = self.shutter, schedule = self.schedule, config = self.config, receiver = self.receiver)
              self.webServer.run()
        else:
           parser.print_help()
@@ -672,11 +827,16 @@ class operateShutters(MyLog):
        if (args.mqtt == True):
            self.mqtt.daemon = True
            self.mqtt.start()
+       if self.receiver is not None:
+           self.receiver.daemon = True
+           self.receiver.start()
 
        if (args.echo == True):
            self.alexa.join()
        if (args.mqtt == True):
            self.mqtt.join()
+       if self.receiver is not None:
+           self.receiver.join()
        self.LogInfo ("Process Command Completed....")
        self.Close();
 
@@ -708,6 +868,11 @@ class operateShutters(MyLog):
                 self.mqtt.shutdown_flag.set()
                 self.mqtt.join()
                 self.LogError("MQTT Listener stopped. Now exiting.")
+            if self.receiver is not None:
+                self.LogError("Stopping RTS Receiver. This can take up to 1 second...")
+                self.receiver.shutdown_flag.set()
+                self.receiver.join()
+                self.LogError("RTS Receiver stopped. Now exiting.")
             if self.webServer is not None:
                 self.LogError("Stopping WebServer. This can take up to 1 second...")
                 self.webServer.shutdown_server()

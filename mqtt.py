@@ -193,10 +193,8 @@ class MQTT(threading.Thread, MyLog):
 
             if action == "command":
                 if msg == "OPEN":
-                    self._publish_state(shutter_id, "opening")
                     self.shutter.rise(shutter_id)
                 elif msg == "CLOSE":
-                    self._publish_state(shutter_id, "closing")
                     self.shutter.lower(shutter_id)
                 elif msg == "STOP":
                     self.shutter.stop(shutter_id)
@@ -207,16 +205,12 @@ class MQTT(threading.Thread, MyLog):
                 target = int(msg)
                 current = self.shutter.getPosition(shutter_id)
                 if target >= 100:
-                    self._publish_state(shutter_id, "opening")
                     self.shutter.rise(shutter_id)
                 elif target <= 0:
-                    self._publish_state(shutter_id, "closing")
                     self.shutter.lower(shutter_id)
                 elif target > current:
-                    self._publish_state(shutter_id, "opening")
                     self.shutter.risePartial(shutter_id, target)
                 elif target < current:
-                    self._publish_state(shutter_id, "closing")
                     self.shutter.lowerPartial(shutter_id, target)
 
             else:
@@ -296,6 +290,15 @@ class MQTT(threading.Thread, MyLog):
         else:
             self._publish_state(shutter_id, "stopped")
 
+    def set_movement_state(self, shutter_id, state):
+        """Callback invoked when a shutter starts moving or stops — fired
+        identically for software (TX) and physical-remote-triggered
+        movement. Complements set_state's position-derived open/closed/
+        stopped signal with the transient opening/closing state during
+        travel."""
+        self.LogInfo("Shutter " + shutter_id + " movement state: " + state)
+        self._publish_state(shutter_id, state)
+
     def run(self):
         self.connected_flag = False
         self.LogInfo("Starting MQTT thread")
@@ -319,6 +322,7 @@ class MQTT(threading.Thread, MyLog):
         self.t.on_message = self.receiveMessageFromMQTT
         self.t.on_disconnect = self.on_disconnect
         self.shutter.registerCallBack(self.set_state)
+        self.shutter.registerMovementCallBack(self.set_movement_state)
 
         # Initial connection with retry
         error = 0

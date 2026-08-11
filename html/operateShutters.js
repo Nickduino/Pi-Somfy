@@ -626,6 +626,9 @@ var marker;
 var config;
 var modalCallerIconElement;
 var configShutter;
+var assignRemoteAddress;
+var unheardRemotesInterval = null;
+var manualOperationInterval = null;
 
 const buttonStop = 0x1;
 const buttonUp = 0x2;
@@ -661,11 +664,18 @@ function GetStartupInfo(initMap)
                config = result;
                setupTableShutters();
                setupTableSchedule();
+               setupTableRemotes();
                if (config.Longitude == 0) {
                    $('#collapseOne').collapse('show');
                } else if (Object.keys(config.Shutters).length == 0){
-                   $('.accordion-collapse.show').collapse('toggle'); 
+                   $('.accordion-collapse.show').collapse('toggle');
                    $('#collapseTwo').collapse('show');
+               }
+               // Manual Operation is expanded by default (no shown.collapse
+               // fires for content already open at load), so start polling
+               // here once rather than only from the collapse event.
+               if (manualOperationInterval === null && $('#collapseFour').hasClass('show')) {
+                   manualOperationInterval = setInterval(refreshMovementStates, 3000);
                }
                $(".loader").removeClass("is-active");
             });
@@ -856,6 +866,21 @@ function pressButtons(id, buttons, longPress, confirmMessage) {
      }, "json");
 }
 
+function setIntermediatePosition(id, position) {
+   var url = baseurl.concat("setIntermediatePosition");
+   $.post(url,
+      {shutter: id, position: position},
+      function(result, status){
+         if ((status=="success") && (result.status == "OK")) {
+            config.ShutterIntermediatePositions[id] = result.intermediatePosition;
+            updateManualOperationState();
+            BootstrapDialog.show({type: BootstrapDialog.TYPE_INFO, title: 'Information', message:'My position saved.'});
+         } else {
+            BootstrapDialog.show({type: BootstrapDialog.TYPE_DANGER, title: 'Error', message:'Received Error from Server: '+result.message});
+         }
+     }, "json");
+}
+
 function deleteShutter(id) {
     var url = baseurl.concat("deleteShutter");
       $.post(  url,
@@ -915,6 +940,32 @@ function deleteSchedule(id) {
                }, "json");
 }
 
+function assignRemote(address, shutterIds) {
+    var url = baseurl.concat("assignRemote");
+      $.post(  url,
+               {address: address, "shutterIds[]": shutterIds},
+               function(result, status){
+                   if ((status=="success") && (result.status == "OK")) {
+                      GetStartupInfo(false);
+                   } else {
+                      BootstrapDialog.show({type: BootstrapDialog.TYPE_DANGER, title: 'Error', message:'Received Error from Server: '+result.message, onhide: function(){GetStartupInfo(false);}});
+                   }
+               }, "json");
+}
+
+function unassignRemote(address) {
+    var url = baseurl.concat("unassignRemote");
+      $.post(  url,
+               {address: address},
+               function(result, status){
+                   if ((status=="success") && (result.status == "OK")) {
+                      GetStartupInfo(false);
+                   } else {
+                      BootstrapDialog.show({type: BootstrapDialog.TYPE_DANGER, title: 'Error', message:'Received Error from Server: '+result.message, onhide: function(){GetStartupInfo(false);}});
+                   }
+               }, "json");
+}
+
 
 
 function setupTableShutters () {
@@ -929,17 +980,52 @@ function setupTableShutters () {
                   '</tr>';
         $("#shutters").append(row);
 
-        var cell = '<div class="shutterRemote" name="'+shutter+'">' + 
+        var cell = '<div class="shutterRemote" name="'+shutter+'">' +
 						'<div class="name">'+config.Shutters[shutter]+'</div>' +
+                        '<div class="position"></div>' +
+                        '<div class="state"></div>' +
+                        '<div class="myPosition"></div>' +
                         '<a class="up btn" title="Up" data-toggle="tooltip" role="button"><svg viewBox="0 0 80 70" xmlns="http://www.w3.org/2000/svg"><path d="M35 14 Q40 0, 45 14 C55 30, 67 52, 71 60 Q75 68, 64 68 L16 68 Q5 68, 9 60 C13 52, 25 30, 35 14 Z" fill="#ccc" stroke="#aaa" stroke-width="1.5"/></svg></a>' +
                         '<a class="stop btn" title="Stop" data-toggle="tooltip" role="button"><svg viewBox="0 0 90 40" xmlns="http://www.w3.org/2000/svg"><rect x="2" y="2" width="86" height="36" rx="18" fill="#ccc" stroke="#aaa" stroke-width="1.5"/></svg></a>' +
                         '<a class="down btn" title="Down" data-toggle="tooltip" role="button"><svg viewBox="0 0 80 70" xmlns="http://www.w3.org/2000/svg"><path d="M9 10 Q5 2, 16 2 L64 2 Q75 2, 71 10 C67 18, 55 40, 45 56 Q40 70, 35 56 C25 40, 13 18, 9 10 Z" fill="#ccc" stroke="#aaa" stroke-width="1.5"/></svg></a>' +
                   '</div>';
         $("#action_manual").append(cell);
     });
-	
+
     $("#shuttersCount").text($("#shutters").find('tr').length-1);
-	
+    updateManualOperationState();
+}
+
+// Reflects config.MovementStates ('opening'/'closing'/'stopped'/null),
+// config.Positions (0-100), and config.ShutterIntermediatePositions (the
+// stored "My" position, 0-100 or null if unset) onto each Manual Operation
+// card — kept current by refreshMovementStates(), polled while that section
+// is visible, so a physical remote press (or a command from elsewhere)
+// shows up here too, not just commands sent from this page.
+function updateManualOperationState() {
+    if (!config.MovementStates || !config.Positions) { return; }
+    Object.keys(config.MovementStates).forEach(function(shutter) {
+        var state = config.MovementStates[shutter];
+        var card = $('.shutterRemote[name="'+shutter+'"]');
+        var label = (state == "opening") ? "Opening..." : (state == "closing") ? "Closing..." : "";
+        card.find(".state").text(label);
+        card.find(".position").text(config.Positions[shutter] + "%");
+        card.toggleClass("moving", state == "opening" || state == "closing");
+        var myPosition = config.ShutterIntermediatePositions ? config.ShutterIntermediatePositions[shutter] : null;
+        var myPositionUnset = (myPosition === null || myPosition === undefined);
+        card.find(".myPosition").text(myPositionUnset ? "⚠ My position not set" : "My: " + myPosition + "%")
+            .toggleClass("unset", myPositionUnset);
+    });
+}
+
+function refreshMovementStates() {
+    $.getJSON(baseurl.concat("getConfig"), {}, function(result, status){
+        if (!(status=="success")) { return; }
+        config.MovementStates = result.MovementStates;
+        config.Positions = result.Positions;
+        config.ShutterIntermediatePositions = result.ShutterIntermediatePositions;
+        updateManualOperationState();
+    });
 }
 
 function setupTableSchedule () {
@@ -1059,6 +1145,61 @@ function setupTableSchedule () {
     $('.editbox.in').show();
 }
 
+function setupTableRemotes () {
+    $("#remotes").find("tr:gt(0)").remove();
+    var addresses = Object.keys(config.PhysicalRemotes);
+    addresses.sort().forEach(function(address) {
+        var shutterNames = config.PhysicalRemotes[address].map(function(shutterId) {
+            return config.Shutters[shutterId] || shutterId;
+        }).join(", ");
+        var row = '<tr name="'+address+'" rowtype="existing">' +
+                     '<td name="address">'+address+'</td>' +
+                     '<td name="shutters">'+shutterNames+'</td>' +
+                     '<td class="td-action">' + $("#action_remotes").html() + '</td>' +
+                  '</tr>';
+        $("#remotes").append(row);
+    });
+    $("#remotesCount").text($("#remotes").find('tr').length-1);
+    initTooltips();
+}
+
+// Polled only while the "Physical Remotes" section is expanded (started/
+// stopped by the shown.collapse/hidden.collapse handlers in setupListeners).
+function refreshUnheardRemotes() {
+    var url = baseurl.concat("getUnheardRemotes");
+    $.getJSON(url, {}, function(result, status){
+        if (!(status=="success") || result.status != "OK") { return; }
+        $("#unheardRemotes").find("tr:gt(0)").remove();
+        var pairedAddresses = Object.keys(config.PhysicalRemotes);
+        result.remotes.forEach(function(remote) {
+            if (pairedAddresses.includes(remote.address)) { return; } // paired since last poll
+            var row = '<tr name="'+remote.address+'" rowtype="existing">' +
+                         '<td name="address">'+remote.address+'</td>' +
+                         '<td name="button">'+remote.buttonName+'</td>' +
+                         '<td class="td-action">' + $("#action_unheard_remotes").html() + '</td>' +
+                      '</tr>';
+            $("#unheardRemotes").append(row);
+        });
+        initTooltips();
+    });
+}
+
+function openAssignRemoteModal(address, currentShutterIds) {
+    assignRemoteAddress = address;
+    $("#assign-remote-address").text(address);
+    var select = $("#assignRemoteShutters");
+    if (select.data('multiselect')) {
+        select.multiselect('destroy');
+    }
+    select.empty();
+    var shutterIds = Object.keys(config.Shutters);
+    shutterIds.sort(function(a, b) { return config.Shutters[a].toLowerCase() > config.Shutters[b].toLowerCase()}).forEach(function(shutterId) {
+        var selected = currentShutterIds.includes(shutterId) ? " selected" : "";
+        select.append('<option value="'+shutterId+'"'+selected+'>'+config.Shutters[shutterId]+'</option>');
+    });
+    select.multiselect({dropUp: true, maxHeight: 200, includeSelectAllOption: true, buttonWidth: '130px', nonSelectedText: 'None', allSelectedText: 'All', numberDisplayed: 1, nSelectedText: 'Selected', buttonClass: 'btn btn-secondary'});
+    $('#assign-remote').modal('show');
+}
 
 function clockDelayValUpdate(obj) {
    if ($(obj).val() !=  parseInt($(obj).val())){
@@ -1366,7 +1507,31 @@ function setupListeners() {
     // Edit row on configure button click
     $(document).on("click", ".configureShutters", function(){
        configShutter = $(this).parents("tr").attr('name');
+       var current = config.ShutterIntermediatePositions[configShutter];
+       $('#intermediatePositionInput').val((current === null || current === undefined) ? "" : current);
        $('#configure-shutter').modal('show');
+    });
+
+    // Reassign an already-paired remote
+    $(document).on("click", ".editRemote", function(){
+       var address = $(this).parents("tr").attr('name');
+       openAssignRemoteModal(address, config.PhysicalRemotes[address] || []);
+    });
+
+    // Assign a remote heard under "Recently Heard"
+    $(document).on("click", ".assignRemoteBtn", function(){
+       var address = $(this).parents("tr").attr('name');
+       openAssignRemoteModal(address, []);
+    });
+
+    $('#assign-remote-save').on("click", function(){
+        var shutterIds = $("#assignRemoteShutters").val() || [];
+        if (shutterIds.length == 0) {
+            BootstrapDialog.show({type: BootstrapDialog.TYPE_DANGER, title: 'Error', message:'Select at least one shutter.'});
+            return;
+        }
+        assignRemote(assignRemoteAddress, shutterIds);
+        $('#assign-remote').modal('hide');
     });
 
     // Edit row on edit button click
@@ -1397,6 +1562,8 @@ function setupListeners() {
                  deleteShutter(rowId);
              } else if (tableId == "schedule") {
                  deleteSchedule(rowId);
+             } else if (tableId == "remotes") {
+                 unassignRemote(rowId);
              }
         }
         $('#confirm-delete').modal('hide');
@@ -1421,6 +1588,27 @@ function setupListeners() {
         } else {
             mymap.invalidateSize();
         }
+    })
+
+    $('#collapseFour').on('shown.collapse', function () {
+        if (manualOperationInterval === null) {
+            refreshMovementStates();
+            manualOperationInterval = setInterval(refreshMovementStates, 3000);
+        }
+    })
+
+    $('#collapseFour').on('hidden.collapse', function () {
+        clearInterval(manualOperationInterval);
+        manualOperationInterval = null;
+    })
+
+    $('#collapseFive').on('shown.collapse', function () {
+        refreshUnheardRemotes();
+        unheardRemotesInterval = setInterval(refreshUnheardRemotes, 3000);
+    })
+
+    $('#collapseFive').on('hidden.collapse', function () {
+        clearInterval(unheardRemotesInterval);
     })
 
     $('#program-new-shutter-ok').on("click", function(){
@@ -1470,7 +1658,16 @@ function setupListeners() {
   $(document).on("click", '.press-button-prog-long', function(){
      pressButtons(configShutter, buttonProg, true);
   });
- 
+
+  $('#save-intermediate-position').on("click", function(){
+     setIntermediatePosition(configShutter, $('#intermediatePositionInput').val());
+  });
+
+  $('#clear-intermediate-position').on("click", function(){
+     $('#intermediatePositionInput').val("");
+     setIntermediatePosition(configShutter, "");
+  });
+
 
     // Shutter Commands
     $(document).on("click", ".up", function(){		
