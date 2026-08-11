@@ -37,6 +37,12 @@ class CC1101Config:
         self.output_power = int(output_power)
         self.transmit_settle_seconds = float(transmit_settle_seconds)
         self.symbol_rate_baud = self.SYMBOL_RATE_BAUD
+        if not (400.0 <= self.frequency_mhz <= 500.0):
+            raise ValueError(f"CC1101Frequency {self.frequency_mhz} MHz out of range; expected 400–500 MHz (Somfy RTS uses 433.42)")
+        if not (0 <= self.output_power <= 255):
+            raise ValueError(f"CC1101OutputPower {self.output_power:#x} out of range; expected 0x00–0xFF")
+        if not (0.0 <= self.transmit_settle_seconds <= 1.0):
+            raise ValueError(f"CC1101TransmitSettleSeconds {self.transmit_settle_seconds} out of range; expected 0.0–1.0 s")
 
     @classmethod
     def from_app_config(cls, config):
@@ -115,14 +121,24 @@ class CC1101Transmitter:
             lock_spi_device=True,
         )
 
+    def __del__(self):
+        try:
+            if hasattr(self, "radio") and hasattr(self.radio, "__exit__"):
+                self.radio.__exit__(None, None, None)
+        except Exception:
+            pass
+
     def transmit(self, frame, repetition):
         if hasattr(self.waveform_transmitter, "set_idle_low"):
             self.waveform_transmitter.set_idle_low()
-        with self.radio as radio:
-            radio.set_base_frequency_hertz(self.config.frequency_hz)
-            radio.set_symbol_rate_baud(self.config.symbol_rate_baud)
-            radio.set_output_power(self.config.output_power_table)
-            with radio.asynchronous_transmission():
-                if self.config.transmit_settle_seconds > 0:
-                    time.sleep(self.config.transmit_settle_seconds)
-                self.waveform_transmitter.transmit(frame, repetition)
+        try:
+            with self.radio as radio:
+                radio.set_base_frequency_hertz(self.config.frequency_hz)
+                radio.set_symbol_rate_baud(self.config.symbol_rate_baud)
+                radio.set_output_power(self.config.output_power_table)
+                with radio.asynchronous_transmission():
+                    if self.config.transmit_settle_seconds > 0:
+                        time.sleep(self.config.transmit_settle_seconds)
+                    self.waveform_transmitter.transmit(frame, repetition)
+        except Exception as e:
+            raise RuntimeError(f"CC1101 transmit failed: {e}") from e

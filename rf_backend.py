@@ -51,7 +51,7 @@ def create_transmitter(
             raw_433_transmitter,
         )
     raise ValueError(
-        "Unknown RFBackend value '" + str(backend_name) + "' in operateShutters.conf. "
+        f"Unknown RFBackend value '{backend_name}' in operateShutters.conf. "
         "Valid values are: raw_433 (default, no extra hardware) or cc1101 "
         "(E07-M1101D-SMA module, see README §2.2)."
     )
