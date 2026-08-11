@@ -118,16 +118,27 @@ new MutationObserver(function() {
                         $(this).collapse('hide');
                     });
                 }
-                $el.addClass('show').hide().slideDown(350, function() {
+                // Use the CSS transition (transition: height 0.35s ease) so the browser
+                // applies the overflow clip natively on the GPU — fixes backdrop-filter
+                // child layers escaping a JS-driven jQuery slideDown clip.
+                $el.css({ display: 'block', height: '0px', overflow: 'hidden' });
+                var target = $el[0].scrollHeight;
+                $el[0].offsetHeight; // force reflow before transition starts
+                $el.addClass('show').css('height', target + 'px');
+                setTimeout(function() {
+                    $el.css({ height: '', overflow: '' });
                     $el.trigger('shown.collapse');
-                });
+                }, 360);
                 $('[data-target="#' + $el.attr('id') + '"]').removeClass('collapsed').attr('aria-expanded', 'true');
             } else if (action === 'hide') {
                 if (!$el.hasClass('show')) return;
-                $el.slideUp(350, function() {
-                    $el.removeClass('show');
+                $el.css({ height: $el[0].scrollHeight + 'px', overflow: 'hidden' });
+                $el[0].offsetHeight; // force reflow
+                $el.css('height', '0px');
+                setTimeout(function() {
+                    $el.removeClass('show').css({ display: '', height: '', overflow: '' });
                     $el.trigger('hidden.collapse');
-                });
+                }, 360);
                 $('[data-target="#' + $el.attr('id') + '"]').addClass('collapsed').attr('aria-expanded', 'false');
             }
         });
