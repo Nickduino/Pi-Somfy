@@ -1054,7 +1054,8 @@ function setupTableSchedule () {
  
         thisRow.find('#scheduleText').html(prettyPrintSchedule(evt, config.Shutters));
 
-        thisRow.find('#scheduleEdit #recordActive').prop('checked', evt['active'] == "active" ? true : false);  
+        thisRow.find('#scheduleEdit #recordActive').prop('checked', evt['active'] == "active" ? true : false);
+        thisRow.find('.sched-grid').toggleClass('paused', evt['active'] != 'active');
 
         thisRow.find('#scheduleEdit .timeType').removeClass('in').hide();
         thisRow.find('#scheduleEdit .timeValue').removeClass('in').hide();
@@ -1224,6 +1225,10 @@ function clockDelayValUpdate(obj) {
 }
     
 function setupListeners() {
+    $(document).on('change', '#recordActive', function() {
+        $(this).closest('.sched-grid').toggleClass('paused', !$(this).prop('checked'));
+    });
+
     $('#locateActions').find('a').on('click', function() { 
         locateUser();
     });

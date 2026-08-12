@@ -479,6 +479,13 @@ button[class*="press-button-"]:hover { background-color: #dee2e6; box-shadow: va
     border-radius: 14px;
     padding: 8px 12px 10px;
     flex: 0 0 auto;
+    transition: opacity 0.25s ease, filter 0.25s ease;
+}
+/* Dim all columns except STATUS when the schedule is paused */
+.sched-grid.paused .sched-col:not(:first-child) {
+    opacity: 0.35;
+    pointer-events: none;
+    filter: grayscale(50%);
 }
 .sched-header {
     font-size: 8px;
