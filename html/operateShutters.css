@@ -460,13 +460,13 @@ button[class*="press-button-"]:hover { background-color: #dee2e6; box-shadow: va
 /* ============ SCHEDULE EDIT CONTROLS ============ */
 .row-eq-height { display: flex; align-items: center; justify-content: center; }
 
-/* Flex layout so columns wrap naturally and all stretch to equal height */
+/* CSS grid keeps all 5 columns on one row; stretch gives equal card height */
 .sched-grid {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: stretch;
+    display: grid;
+    grid-template-columns: auto auto 1fr auto auto;
     gap: 8px;
     padding: 6px 0 8px;
+    align-items: stretch;
 }
 /* Each column is a glass card */
 .sched-col {
@@ -560,7 +560,7 @@ button[class*="press-button-"]:hover { background-color: #dee2e6; box-shadow: va
 .weekDays-selector label.error { background: #FFC0CB !important; color: #FF0000 !important; }
 .weekDays-selector label.selected { background: var(--color-primary) !important; color: #fff !important; border-color: transparent !important; }
 
-@media (max-width: 800px) { .sched-grid { gap: 6px; } }
+@media (max-width: 800px) { .sched-grid { grid-template-columns: repeat(3, auto); } }
 @media (max-width: 520px) { .sched-col { padding: 6px 8px 8px; } }
 @media (max-width: 576px) { .weekDays-selector label { height: 28px; width: 28px; font-size: 11px; } }
 
