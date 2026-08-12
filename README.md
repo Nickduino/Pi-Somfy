@@ -409,7 +409,7 @@ Pi-Somfy can integrate directly with [Home Assistant](https://www.home-assistant
 
 #### Option B: Manual install
 
-1. Copy the `Home Assistant/custom_components/pi_somfy` folder into your Home Assistant `config/custom_components/` directory.
+1. Copy the `custom_components/pi_somfy` folder into your Home Assistant `config/custom_components/` directory.
 2. Restart Home Assistant.
 3. Go to **Settings → Devices & Services → Add Integration**, search for "Pi-Somfy", and enter the IP address and port of your Pi-Somfy instance (default port: 80).
 
