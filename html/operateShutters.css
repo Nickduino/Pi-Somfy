@@ -553,23 +553,41 @@ button[class*="press-button-"]:hover { background-color: #dee2e6; box-shadow: va
 .timeTypeUp, .timeTypeDown, .timeType,
 .repeatTypeUp, .repeatTypeDown, .repeatType { text-align: center; }
 
-/* Weekday pills */
+/* Segmented-control pill — all 7 days in one unbreakable row */
+.weekDays-selector {
+    display: flex;
+    border-radius: 10px;
+    overflow: hidden;
+    border: 1px solid rgba(0,0,0,0.1);
+    background: #f0f0f0;
+}
 .weekDays-selector input { display: none !important; margin: 0 !important; padding: 0 !important; }
 .weekDays-selector label {
-    display: inline-flex; align-items: center; justify-content: center;
-    border-radius: 50%; background: #f0f0f0; height: 26px; width: 26px;
-    margin: 2px; padding: 0; cursor: pointer;
-    font-size: 10px; font-weight: 700; color: #666;
-    border: 1.5px solid transparent;
-    transition: all var(--transition);
+    flex: 1;
+    display: flex !important;
+    align-items: center;
+    justify-content: center;
+    height: 28px !important;
+    width: auto !important;
+    min-width: 0;
+    margin: 0 !important;
+    padding: 0 3px;
+    border-radius: 0 !important;
+    border-right: 1px solid rgba(0,0,0,0.1);
+    font-size: 9px;
+    font-weight: 700;
+    color: #777;
+    cursor: pointer;
+    transition: background 0.15s ease, color 0.15s ease;
+    white-space: nowrap;
 }
-.weekDays-selector label:hover { border-color: var(--color-primary); color: var(--color-primary); }
+.weekDays-selector label:last-of-type { border-right: none; }
+.weekDays-selector label:hover { background: rgba(13,110,253,0.12); color: var(--color-primary); }
 .weekDays-selector label.error { background: #FFC0CB !important; color: #FF0000 !important; }
-.weekDays-selector label.selected { background: var(--color-primary) !important; color: #fff !important; border-color: transparent !important; }
-
+.weekDays-selector label.selected { background: var(--color-primary) !important; color: #fff !important; }
 @media (max-width: 800px) { .sched-grid { grid-template-columns: repeat(3, auto); } }
 @media (max-width: 520px) { .sched-col { padding: 6px 8px 8px; } }
-@media (max-width: 576px) { .weekDays-selector label { height: 28px; width: 28px; font-size: 11px; } }
+@media (max-width: 576px) { .weekDays-selector label { height: 30px !important; font-size: 10px; } }
 
 /* ============ MANUAL OPERATION ============ */
 #action_manual { display: flex; flex-flow: row wrap; gap: 10px; padding: 4px; }
