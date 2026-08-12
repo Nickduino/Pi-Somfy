@@ -996,9 +996,9 @@ function setupTableShutters () {
                         '<div class="position"></div>' +
                         '<div class="state"></div>' +
                         '<div class="myPosition"></div>' +
-                        '<a class="up btn" title="Up" data-toggle="tooltip" role="button"><svg viewBox="0 0 80 70" xmlns="http://www.w3.org/2000/svg"><path d="M35 14 Q40 0, 45 14 C55 30, 67 52, 71 60 Q75 68, 64 68 L16 68 Q5 68, 9 60 C13 52, 25 30, 35 14 Z" fill="#ccc" stroke="#aaa" stroke-width="1.5"/></svg></a>' +
-                        '<a class="stop btn" title="Stop" data-toggle="tooltip" role="button"><svg viewBox="0 0 90 40" xmlns="http://www.w3.org/2000/svg"><rect x="2" y="2" width="86" height="36" rx="18" fill="#ccc" stroke="#aaa" stroke-width="1.5"/></svg></a>' +
-                        '<a class="down btn" title="Down" data-toggle="tooltip" role="button"><svg viewBox="0 0 80 70" xmlns="http://www.w3.org/2000/svg"><path d="M9 10 Q5 2, 16 2 L64 2 Q75 2, 71 10 C67 18, 55 40, 45 56 Q40 70, 35 56 C25 40, 13 18, 9 10 Z" fill="#ccc" stroke="#aaa" stroke-width="1.5"/></svg></a>' +
+                        '<a class="up" title="Up" data-toggle="tooltip" role="button"><svg viewBox="0 0 80 70" xmlns="http://www.w3.org/2000/svg"><path d="M35 14 Q40 0, 45 14 C55 30, 67 52, 71 60 Q75 68, 64 68 L16 68 Q5 68, 9 60 C13 52, 25 30, 35 14 Z" fill="#b0afa8" stroke="rgba(0,0,0,0.18)" stroke-width="1.5"/></svg></a>' +
+                        '<a class="stop" title="Stop / My" data-toggle="tooltip" role="button"><svg viewBox="0 0 86 32" xmlns="http://www.w3.org/2000/svg"><rect x="0" y="0" width="86" height="32" rx="16" fill="#b0afa8" stroke="rgba(0,0,0,0.18)" stroke-width="1.5"/></svg></a>' +
+                        '<a class="down" title="Down" data-toggle="tooltip" role="button"><svg viewBox="0 0 80 70" xmlns="http://www.w3.org/2000/svg"><path d="M9 10 Q5 2, 16 2 L64 2 Q75 2, 71 10 C67 18, 55 40, 45 56 Q40 70, 35 56 C25 40, 13 18, 9 10 Z" fill="#b0afa8" stroke="rgba(0,0,0,0.18)" stroke-width="1.5"/></svg></a>' +
                   '</div>';
         $("#action_manual").append(cell);
     });
@@ -1054,7 +1054,8 @@ function setupTableSchedule () {
  
         thisRow.find('#scheduleText').html(prettyPrintSchedule(evt, config.Shutters));
 
-        thisRow.find('#scheduleEdit #recordActive').prop('checked', evt['active'] == "active" ? true : false);  
+        thisRow.find('#scheduleEdit #recordActive').prop('checked', evt['active'] == "active" ? true : false);
+        thisRow.find('.sched-grid').toggleClass('paused', evt['active'] != 'active');
 
         thisRow.find('#scheduleEdit .timeType').removeClass('in').hide();
         thisRow.find('#scheduleEdit .timeValue').removeClass('in').hide();
@@ -1224,6 +1225,10 @@ function clockDelayValUpdate(obj) {
 }
     
 function setupListeners() {
+    $(document).on('change', '#recordActive', function() {
+        $(this).closest('.sched-grid').toggleClass('paused', !$(this).prop('checked'));
+    });
+
     $('#locateActions').find('a').on('click', function() { 
         locateUser();
     });

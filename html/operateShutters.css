@@ -460,115 +460,162 @@ button[class*="press-button-"]:hover { background-color: #dee2e6; box-shadow: va
 /* ============ SCHEDULE EDIT CONTROLS ============ */
 .row-eq-height { display: flex; align-items: center; justify-content: center; }
 
-/* Schedule 5-column grid layout */
+/* CSS grid keeps all 5 columns on one row; stretch gives equal card height */
 .sched-grid {
     display: grid;
     grid-template-columns: auto auto 1fr auto auto;
-    gap: 2px 10px;
-    padding: 8px 0;
-    align-items: start;
-    justify-items: center;
+    gap: 8px;
+    padding: 6px 0 8px;
+    align-items: stretch;
 }
+/* Each column is a glass card */
 .sched-col {
-    text-align: center;
-    min-width: 0;
-    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    background: rgba(255,255,255,0.72);
+    backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+    border: 1px solid rgba(0,0,0,0.07);
+    border-radius: 14px;
+    padding: 8px 12px 10px;
+    flex: 0 0 auto;
+    transition: opacity 0.25s ease, filter 0.25s ease;
+}
+/* Dim all columns except STATUS when the schedule is paused */
+.sched-grid.paused .sched-col:not(:first-child) {
+    opacity: 0.35;
+    pointer-events: none;
+    filter: grayscale(50%);
 }
 .sched-header {
-    font-size: 9px;
-    font-weight: 700;
+    font-size: 8px;
+    font-weight: 800;
     text-transform: uppercase;
-    letter-spacing: 0.8px;
-    color: #888;
-    padding-bottom: 4px;
-    margin-bottom: 6px;
-    border-bottom: 1px solid #ddd;
+    letter-spacing: 1.2px;
+    color: #aaa;
+    margin-bottom: 8px;
+    white-space: nowrap;
 }
 .sched-body {
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 2px;
+    justify-content: center;
+    gap: 6px;
+    flex: 1;
 }
 
-/* Type selector (left / icon / right row) */
+/* Type selector — icon sandwiched between chevron arrows inside a pill */
 .type-selector {
     display: flex;
-    flex-direction: row;
     align-items: center;
-    gap: 4px;
+    gap: 0;
+    background: rgba(0,0,0,0.06);
+    border-radius: 20px;
+    padding: 4px 8px;
     cursor: pointer;
 }
-.type-selector .timeTypeUp,
-.type-selector .timeTypeDown,
-.type-selector .repeatTypeUp,
-.type-selector .repeatTypeDown {
+.type-selector .timeTypeUp, .type-selector .timeTypeDown,
+.type-selector .repeatTypeUp, .type-selector .repeatTypeDown {
+    padding: 0 4px;
+    color: #777;
     line-height: 1;
-    padding: 0;
 }
 
-/* Direction row */
+/* Direction buttons — filled circles; active = primary, inactive = ghost */
 .sched-direction {
     display: flex;
-    flex-direction: row;
     align-items: center;
-    gap: 4px;
+    gap: 5px;
 }
-
-@media (max-width: 800px) {
-    .sched-grid {
-        grid-template-columns: repeat(3, 1fr);
-    }
+.shutterAction {
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    cursor: pointer;
+    transition: transform 0.1s ease, filter 0.1s ease;
 }
-@media (max-width: 520px) {
-    .sched-grid {
-        grid-template-columns: repeat(2, 1fr);
-    }
+.shutterAction:not(.inactiveDirection) {
+    background: var(--color-primary);
+    color: #fff;
 }
-@media (max-width: 360px) {
-    .sched-grid {
-        grid-template-columns: 1fr;
-    }
-}
+.shutterAction:not(.inactiveDirection):hover { transform: scale(1.12); filter: brightness(1.1); }
+.inactiveDirection { background: #ebebeb; color: #bbb; cursor: default; }
 
 .timeTypeUp, .timeTypeDown, .repeatTypeUp, .repeatTypeDown { cursor: pointer; }
 .timeValue, .repeatValue { display: block; }
 .timeTypeUp:hover, .repeatTypeUp:hover { position: relative; left: -1px; }
 .timeTypeDown:hover, .repeatTypeDown:hover { position: relative; left: 1px; }
 .timeTypeUp, .timeTypeDown, .timeType,
-.repeatTypeUp, .repeatTypeDown, .repeatType,
-.shutterAction { text-align: center; }
+.repeatTypeUp, .repeatTypeDown, .repeatType { text-align: center; }
 
+/* Segmented-control pill — all 7 days in one unbreakable row */
+.weekDays-selector {
+    display: flex;
+    border-radius: 10px;
+    overflow: hidden;
+    border: 1px solid rgba(0,0,0,0.1);
+    background: #f0f0f0;
+}
 .weekDays-selector input { display: none !important; margin: 0 !important; padding: 0 !important; }
 .weekDays-selector label {
-    display: inline-flex; align-items: center; justify-content: center;
-    border-radius: 50%; background: #f0f0f0; height: 22px; width: 22px;
-    margin: 1px; padding: 0; line-height: 1; text-align: center; cursor: pointer;
-    font-size: 10px; font-weight: bold; transition: all var(--transition);
+    flex: 1;
+    display: flex !important;
+    align-items: center;
+    justify-content: center;
+    height: 28px !important;
+    width: auto !important;
+    min-width: 0;
+    margin: 0 !important;
+    padding: 0 3px;
+    border-radius: 0 !important;
+    border-right: 1px solid rgba(0,0,0,0.1);
+    font-size: 9px;
+    font-weight: 700;
+    color: #777;
+    cursor: pointer;
+    transition: background 0.15s ease, color 0.15s ease;
+    white-space: nowrap;
 }
+.weekDays-selector label:last-of-type { border-right: none; }
+.weekDays-selector label:hover { background: rgba(13,110,253,0.12); color: var(--color-primary); }
 .weekDays-selector label.error { background: #FFC0CB !important; color: #FF0000 !important; }
-.weekDays-selector label.selected { background: #286090 !important; color: #fff !important; }
-.shutterActionUp:hover { position: relative; top: -1px; }
-.shutterActionDown:hover { position: relative; top: 1px; }
-.inactiveDirection { color: #ddd; }
+.weekDays-selector label.selected { background: var(--color-primary) !important; color: #fff !important; }
+@media (max-width: 800px) { .sched-grid { grid-template-columns: repeat(3, auto); } }
+@media (max-width: 520px) { .sched-col { padding: 6px 8px 8px; } }
+@media (max-width: 576px) { .weekDays-selector label { height: 30px !important; font-size: 10px; } }
 
 /* ============ MANUAL OPERATION ============ */
-#action_manual { display: flex; flex-flow: row wrap; gap: 4px; }
+#action_manual { display: flex; flex-flow: row wrap; gap: 10px; padding: 4px; }
 .shutterRemote {
-    width: 120px; margin: 4px; padding: 10px;
-    border: 1px solid rgba(200,200,200,0.6); border-radius: 16px;
-    background: var(--glass-bg); backdrop-filter: var(--glass-blur); -webkit-backdrop-filter: var(--glass-blur);
-    box-shadow: var(--shadow-sm); transition: all var(--transition);
+    width: 110px; margin: 0; padding: 12px 8px 12px;
+    border-radius: 24px;
+    background: linear-gradient(170deg, #f4f4f4 0%, #e0e0e0 100%);
+    border: 1.5px solid rgba(0,0,0,0.13);
+    box-shadow: 0 2px 6px rgba(0,0,0,0.13), 0 1px 2px rgba(0,0,0,0.09);
+    transition: box-shadow var(--transition);
+    display: flex; flex-direction: column; align-items: center; gap: 7px;
 }
-.shutterRemote:hover { box-shadow: var(--shadow-md); transform: translateY(-2px); }
-.shutterRemote .name { text-align: center; font-size: 14px; font-weight: 700; color: #666; margin-bottom: 4px; }
-.shutterRemote .position { text-align: center; font-size: 20px; font-weight: 700; color: var(--color-dark); margin-bottom: 2px; }
-.shutterRemote .state { text-align: center; font-size: 12px; font-weight: 600; color: var(--color-primary); min-height: 1.2em; margin-bottom: 2px; }
+.shutterRemote:hover { box-shadow: 0 4px 10px rgba(0,0,0,0.17), 0 1px 2px rgba(0,0,0,0.09); }
+.shutterRemote .name { text-align: center; font-size: 13px; font-weight: 700; color: #555; margin-bottom: 0; }
+.shutterRemote .position { text-align: center; font-size: 20px; font-weight: 700; color: #222; margin-bottom: 0; }
+.shutterRemote .state { text-align: center; font-size: 12px; font-weight: 600; color: #2272c3; min-height: 1.2em; }
 .shutterRemote .myPosition { text-align: center; font-size: 11px; font-weight: 600; color: #999; min-height: 1.2em; margin-bottom: 2px; }
-.shutterRemote .myPosition.unset { color: var(--color-warning); }
-.shutterRemote.moving { box-shadow: 0 0 0 2px var(--color-primary); }
-.shutterRemote a { display: block; margin-left: auto; margin-right: auto; }
-.shutterRemote a svg { width: 60px; height: auto; }
+.shutterRemote .myPosition.unset { color: #c47800; }
+.shutterRemote.moving { box-shadow: 0 0 0 2px var(--color-primary), 0 2px 6px rgba(0,0,0,0.13); }
+/* SVG stroke on the shapes provides crisp edges; no CSS filter blur needed */
+.shutterRemote a {
+    display: block; cursor: pointer; outline: none;
+    transition: transform 0.08s ease, opacity 0.08s ease;
+    -webkit-tap-highlight-color: transparent;
+}
+.shutterRemote a:hover  { opacity: 0.88; }
+.shutterRemote a:active { transform: translateY(2px); opacity: 0.78; }
+.shutterRemote a svg { display: block; width: 60px; height: auto; }
 
 /* ============ SVG ICONS ============ */
 .icon { display: inline-flex; align-items: center; justify-content: center; width: 1em; height: 1em; vertical-align: -0.125em; fill: currentColor; flex-shrink: 0; }
@@ -582,13 +629,13 @@ button[class*="press-button-"]:hover { background-color: #dee2e6; box-shadow: va
     .table-wrapper { padding: 10px; }
     table.table td a { min-width: 20px; min-height: auto; margin: 0 2px; }
     table.table td .icon { font-size: 19px; }
-    .shutterRemote { width: 100px; }
+    .shutterRemote { width: 100px; gap: 5px; }
     .btn, .form-control, .input-group-text,
     .custom-multiselect .ms-btn, .custom-multiselect .ms-item,
     .dp-grid .dp-day { min-height: 36px; }
     .weekDays-selector label { height: 28px; width: 28px; font-size: 11px; }
 }
 @media (max-width: 400px) {
-    .shutterRemote { width: 90px; padding: 6px; }
-    .shutterRemote a svg { width: 48px; }
+    .shutterRemote { width: 90px; padding: 8px 6px; gap: 5px; }
+    .shutterRemote a svg { width: 50px; }
 }

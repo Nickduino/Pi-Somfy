@@ -10,7 +10,15 @@ This project has been developed and tested with a Raspberry Pi B+ and a Raspberr
 
 Wi-Fi connectivity and Ethernet cable should both work. Note that the hardware has to be reasonably close (i.e. in the same house or in the same aisle of your mansion: just like a physical remote) to the shutters you operate, as the signal strength will otherwise not be sufficient.
 
-As of now, you have to build your own hardware. Here are the steps to do so.
+Pi-Somfy supports two RF hardware options:
+
+1. A raw 433 MHz ASK/OOK transmitter module. This is the original low-cost hardware path.
+1. An E07-M1101D-SMA CC1101 module. This is controlled over SPI and transmits the same Somfy RTS waveform through the CC1101 radio.
+
+### Raw 433 MHz transmitter
+
+For the original raw 433 MHz transmitter, you have to build your own hardware. Here are the steps to do so.
+
 1. You need the RF Transmitter. If you wish to order it from eBay, this link may be helpful: <br/>[Order](https://www.ebay.com/sch/sis.html?_nkw=5x+433Mhz+RF+transmitter+and+receiver+kit+Module+Arduino+ARM+WL+MCU+Raspberry).<br/>Note that desoldering a 3 pin component isn't trivial, so ordering more than one may be a good idea in case of a screw up.
 1. You need an oscillator for a 433.42 MHz frequency. The above RF transmitter comes with a common 433.93 MHz one, which will not work with your Somfy shutter. If you wish to order it from eBay, this link may be helpful: <br/>[Order](https://www.ebay.com/sch/sis.html?_nkw=433.42M+R433+F433+SAW+Resonator+Crystals+TO-39)
 1. You will need cables to connect the transmitter to the Raspberry Pi. Any cable will do obviously, but I found these quite helpful. <br/>[Order](https://www.ebay.com/itm/40Pin-Multicolored-Dupont-Wire-Kits-Breadboard-Female-Jumper-Ribbon-Cable/113310899442)
@@ -33,6 +41,14 @@ Note that I used GPIO 4 but you can change the value of __TXGPIO__ to whatever y
 
 OK. now this all should look like this. Note that some of the pictures are a bit confusing with regards to which GPIO a cable connects to. It's easier to see on the above diagram. But if you struggle, maybe the [Wiring Diagram](documentation/Wiring%20Diagram.txt) helps.
 
+Set the top-level RF backend in `operateShutters.conf`:
+
+```ini
+TXGPIO = 4
+RFBackend = raw_433
+```
+
+Raw 433 MHz transmitter connection photos:
 
 ![Full Picture](documentation/Full%20Assembly.jpg)<br/>
 ![Pi Connection](documentation/Connection.jpg)<br/>
@@ -111,6 +127,38 @@ between sellers, and MOSI/MISO are sometimes printed as `SI`/`SO` instead:
 Leave `RXGPIO` unset/commented out (or `rx_gpio_pin` blank in the add-on)
 to run without a receiver at all, exactly as before this feature existed.
 
+### 2.2 CC1101 as transmitter (optional) — E07-M1101D-SMA module
+
+Pi-Somfy can also drive an E07-M1101D-SMA CC1101 module as the **transmitter**, replacing the raw 433 MHz GPIO path. This module is controlled over SPI and uses the CC1101 asynchronous transmit mode, with the Somfy RTS waveform driven into GDO0.
+
+The E07-M1101D-SMA must be powered from 3.3V. Do not connect VCC or any logic pin to 5V.
+
+| E07-M1101D-SMA pin | Raspberry Pi 4 physical pin | Raspberry Pi signal |
+| --- | ---: | --- |
+| 1 GND | 6 | GND |
+| 2 VCC | 1 or 17 | 3.3V |
+| 3 GDO0 | 7 | GPIO4 / TXGPIO |
+| 4 CSN | 24 | SPI0 CE0 / GPIO8 |
+| 5 SCK | 23 | SPI0 SCLK / GPIO11 |
+| 6 MOSI | 19 | SPI0 MOSI / GPIO10 |
+| 7 MISO/GDO1 | 21 | SPI0 MISO / GPIO9 |
+| 8 GDO2 | 22 | GPIO25, optional |
+
+Enable SPI on the Pi, then set the top-level RF backend in `operateShutters.conf`:
+
+```ini
+TXGPIO = 4
+SendRepeat = 5
+RFBackend = cc1101
+CC1101Frequency = 433.42
+CC1101SPIBus = 0
+CC1101SPIDevice = 0
+CC1101OutputPower = 0xC6
+CC1101TransmitSettleSeconds = 0.05
+```
+
+`CC1101TransmitSettleSeconds` keeps GDO0 low briefly after the CC1101 enters asynchronous TX mode before the Somfy waveform starts. `0.05` has worked reliably with an E07-M1101D-SMA on a Raspberry Pi 4. If one shade still misses commands, increase `SendRepeat` first because it sends more copies of the same Somfy frame.
+
 ## 3 Software
 
 If you are new to using a Raspberry Pi and Linux please refer to other sources for coming up to speed with the environment. Having a base knowledge will go a long way. This [site](https://www.raspberrypi.org/help/) is a great place to start if you are new to these topics.
@@ -119,7 +167,7 @@ If you are not familiar with remote login commands for Linux/Unix, two useful co
 
 The Raspberry Pi organization has documentation on installing an operating system on your Raspberry Pi. It is located [here](https://www.raspberrypi.org/documentation/installation/installing-images/README.md).
 
-Once the Pi has its basic setup (an operating system and an internet connection) working, ssh into your Raspberry Pi and you should find that you are in the directory /home/pi. Note: if you prefer not to use a headless system, you can also open a terminal windows directly on the Pi.
+Once the Pi has its basic setup (an operating system and an internet connection) working, ssh into your Raspberry Pi. The examples below install into `~/Pi-Somfy`; if you use a different directory, run the commands from that checkout.
 
 The next step is to download the Pi-Somfy project files to your Raspberry Pi. The easiest way to do this is to use the "git" program. Most Raspberry Pi distributions include the git program (except Debian Lite).
 
@@ -131,44 +179,75 @@ sudo apt-get install git
 ```
 (If git isn't installed, it will install it; if it was previously, it will update it)
 
-Once git is installed on your system, make sure you are in the /home/pi directory, then type:
+Once git is installed on your system, clone the project:
 
 ```sh
+cd ~
 git clone https://github.com/Nickduino/Pi-Somfy.git
+cd Pi-Somfy
 ```
 
-The above command will make a directory in /home/pi named Pi-Somfy and put the project files in this directory.
+The above command will make a directory named `Pi-Somfy` and put the project files in this directory.
 
-Next, we need to install Python Libraries. Pi-Somfy requires Python 3. Ensure pip3 is installed:
+Next, install the Raspberry Pi OS packages used by Pi-Somfy. On current Raspberry Pi OS releases, the GPIO package is `python3-pigpio`; the bare `pigpio` package name may not be installable.
 
 ```sh
 sudo apt-get update
-sudo apt-get install python3-pip
+sudo apt-get install python3-venv python3-pip python3-pigpio python3-lgpio python3-spidev
 ```
 
-Next, we need to install the PIGPIO libraries, to do so, type:
+For the E07-M1101D-SMA / CC1101 backend, enable SPI:
 
 ```sh
-sudo apt-get install pigpio
+sudo raspi-config nonint do_spi 0
+ls -l /dev/spidev*
 ```
 
-Next install the required Python Libraries:
+If `/dev/spidev0.0` and `/dev/spidev0.1` do not appear, reboot and check again.
+
+Create a Python virtual environment that can see the Raspberry Pi OS GPIO/SPI packages, then install the Python requirements:
 
 ```sh
-sudo pip3 install -r requirements.txt
+python3 -m venv --system-site-packages .venv
+.venv/bin/python -m pip install --upgrade pip setuptools wheel
+.venv/bin/python -m pip install -r requirements.txt
 ```
 
-Next, let's test if it all works. Start `operateShutters.py` by typing:
+The `--system-site-packages` option is intentional: Raspberry Pi OS supplies `pigpio`, `lgpio`, and `spidev` as apt packages, while `requirements.txt` installs or verifies the Python packages used by the app, including `cc1101`.
+
+If this is a new install, create the config from the default and choose the RF backend:
 
 ```sh
-sudo python3 /home/pi/Pi-Somfy/operateShutters.py
+cp defaultConfig.conf operateShutters.conf
+```
+
+For the raw 433 MHz transmitter, keep:
+
+```ini
+RFBackend = raw_433
+```
+
+For the E07-M1101D-SMA / CC1101 module, set:
+
+```ini
+SendRepeat = 5
+RFBackend = cc1101
+CC1101Frequency = 433.42
+CC1101OutputPower = 0xC6
+CC1101TransmitSettleSeconds = 0.05
+```
+
+Next, test the Python environment by typing:
+
+```sh
+.venv/bin/python operateShutters.py -h
 ```
 
 You should see the help text explaining the [Command Line Interface](documentation/p4.png)
 
 ## 4 Usage
 
-Note that the config file won't exist the first time you run the application. In that case, a new config file will be created based on the name you specified (e.g. /home/pi/Pi-Somfy/operateShutters.conf). Once it has been created, you can modify it to change your need (SSL or not, which port is used, etc.), it will not be erased with an update. If you messed up something, just delete it and relaunch operateShutters.py, a new vanilla copy will be generated.
+Note that the config file won't exist the first time you run the application unless you copied it from `defaultConfig.conf` during install. In that case, a new config file will be created based on the name you specified (e.g. `operateShutters.conf` in your checkout). Once it has been created, you can modify it to change your need (SSL or not, which port is used, etc.), it will not be erased with an update. If you messed up something, just delete it and relaunch operateShutters.py, a new vanilla copy will be generated.
 
 You have 6 ways to operate. The recommended operation mode is mode 5. But the other 5 modes are explained here for completeness:
 
@@ -201,46 +280,52 @@ You have 6 ways to operate. The recommended operation mode is mode 5. But the ot
 **Examples:**
 All three command the shutter named corridor. The first one will raise it. The second one will lower it. The third one will lower the shutter at sunset and raise it again 60 minutes after sunrise.
 ```sh
-sudo /home/pi/Pi-Somfy/operateShutters.py corridor -c /home/pi/Pi-Somfy/operateShutters.conf -u
-sudo /home/pi/Pi-Somfy/operateShutters.py corridor -c /home/pi/Pi-Somfy/operateShutters.conf -d
-sudo /home/pi/Pi-Somfy/operateShutters.py corridor -c /home/pi/Pi-Somfy/operateShutters.conf -dd 0 60
+.venv/bin/python operateShutters.py corridor -c operateShutters.conf -u
+.venv/bin/python operateShutters.py corridor -c operateShutters.conf -d
+.venv/bin/python operateShutters.py corridor -c operateShutters.conf -dd 0 60
 ``` 
 
 2. Manually start Web interface only<br/>You can start the web-interface by typing:<br/>Once started, you can access the web interface at http://IPaddressOfYourPi:80. From there you can further modify your settings.   
 ```sh
-sudo python3 /home/pi/Pi-Somfy/operateShutters.py -c /home/pi/Pi-Somfy/operateShutters.conf -a 
+sudo .venv/bin/python operateShutters.py -c operateShutters.conf -a 
 ```    
 
 3. Manually start Web interface and Alexa interface<br/>You can start the web-interface by typing:
 ```sh
-sudo python3 /home/pi/Pi-Somfy/operateShutters.py -c /home/pi/Pi-Somfy/operateShutters.conf -a -e
+sudo .venv/bin/python operateShutters.py -c operateShutters.conf -a -e
 ```    
 
 4. Manually start Web interface and MQTT integration (for Home Assistant)<br/>You can start the web-interface by typing:
 ```sh
-sudo python3 /home/pi/Pi-Somfy/operateShutters.py -c /home/pi/Pi-Somfy/operateShutters.conf -a -m
+sudo .venv/bin/python operateShutters.py -c operateShutters.conf -a -m
 ```    
 
 5. Finally, the recommended way to operate it is using a systemd service on boot time. You can do so by typing:
 ```sh
-sudo bash /home/pi/Pi-Somfy/installService.sh
+sudo bash ./installService.sh
 ```
-The service will be installed as a system service right after establishing network connectivity.
+The service will be installed as `pi-somfy.service` and starts after network connectivity.
+By default, the service runs the web interface with `-a`. To also enable MQTT and Alexa, install it like this:
+
+```sh
+PI_SOMFY_ARGS="-a -m -e" sudo -E bash ./installService.sh
+```
+
 If you want to stop the service simply type:
 ```sh
-sudo systemctl stop shutters.service
+sudo systemctl stop pi-somfy.service
 ```  
 If you want to start the service simply type:
 ```sh
-sudo systemctl start shutters.service
+sudo systemctl start pi-somfy.service
 ```  
 If you want to restart the service simply type:
 ```sh
-sudo systemctl restart shutters.service
+sudo systemctl restart pi-somfy.service
 ```  
-Note, currently the service expects python3 for starting up.
+The installer writes the service file with the path to your current checkout and uses `.venv/bin/python` when that virtual environment exists.
 ```
-ExecStart=sudo /usr/bin/python3 /home/pi/Pi-Somfy/operateShutters.py -c /home/pi/Pi-Somfy/operateShutters.conf -a -e -m
+ExecStart=/path/to/Pi-Somfy/.venv/bin/python /path/to/Pi-Somfy/operateShutters.py -c /path/to/Pi-Somfy/operateShutters.conf -a
 ```
 
 6. Alternatively, you can use cron to run the program at boot time. You can do so by typing:
@@ -250,8 +335,8 @@ sudo crontab -e
 Note, that "crontab -e" will just open a console-based text editor that you can edit the crontab script. The first time you run "crontab -e" you will be prompted to choose the editor. I recommend nano. From the crontab window, add the following to the bottom of the crontab script
 
 ```
-@reboot sleep 60;python3 /home/pi/Pi-Somfy/operateShutters.py -c /home/pi/Pi-Somfy/operateShutters.conf -a -e -m
-0 * * * * python3 /home/pi/Pi-Somfy/operateShutters.py -c /home/pi/Pi-Somfy/operateShutters.conf -a -e -m
+@reboot sleep 60; cd /path/to/Pi-Somfy && .venv/bin/python operateShutters.py -c operateShutters.conf -a -e -m
+0 * * * * cd /path/to/Pi-Somfy && .venv/bin/python operateShutters.py -c operateShutters.conf -a -e -m
 ```
 
 And save the crontab schedule. (if using nano type press ctrl-o to save the file, ctrl-x to exit nano). Now, every time your system is booted operateShutters will start.
@@ -361,7 +446,7 @@ If you choose not to use the Home Assistant add-in, you can download the [Mosqui
 Second, start `operateShutters.py` with the "-m" option. This should look similar to this:
 
 ```sh
-operateShutters.py -c /home/pi/Pi-Somfy/operateShutters.conf -a -m
+.venv/bin/python operateShutters.py -c operateShutters.conf -a -m
 ```
 
 And that's it, you are all set. 
@@ -432,10 +517,10 @@ The project has been updated to use current software libraries and fix a number 
 If you already have Pi-Somfy installed, follow these steps to upgrade:
 
 ```sh
-cd /home/pi/Pi-Somfy
+cd ~/Pi-Somfy
 git pull
-sudo pip3 install -r requirements.txt
-sudo systemctl restart shutters.service
+.venv/bin/python -m pip install -r requirements.txt
+sudo systemctl restart pi-somfy.service
 ```
 
 Note: if you are not using MQTT (`-m` flag), `paho-mqtt` is no longer required and you can skip installing it. Your existing `operateShutters.conf` will be preserved — the upgrade only replaces code files.
