@@ -415,7 +415,15 @@ Pi-Somfy can integrate directly with [Home Assistant](https://www.home-assistant
 
 ### Installing the Add-on
 
-1. Copy the `Home Assistant/addon/pi_somfy` folder to your Home Assistant `addons/pi_somfy` directory.
+#### Option A: Add-on repository (recommended)
+
+1. Go to **Settings → Add-ons → Add-on Store**, click the three-dot menu (top right) and select **Repositories**.
+2. Add `https://github.com/Nickduino/Pi-Somfy` and click **Add**.
+3. Find "Pi-Somfy" under the new repository and install it.
+
+#### Option B: Manual install
+
+1. Copy the `somfy-ha-addon` folder to your Home Assistant `addons/somfy-ha-addon` directory.
 2. Go to **Settings → Add-ons → Add-on Store** and click the refresh button.
 3. Find "Pi-Somfy" under "Local add-ons" and install it.
 4. Configure the GPIO pin in the add-on settings (default: GPIO 4).

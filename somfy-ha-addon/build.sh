@@ -6,7 +6,7 @@
 # This script is only useful for building the add-on locally outside
 # of Home Assistant Supervisor.
 #
-# Usage:  cd "Home Assistant/addon/pi_somfy" && bash build.sh
+# Usage:  cd "somfy-ha-addon" && bash build.sh
 
 set -euo pipefail
 
