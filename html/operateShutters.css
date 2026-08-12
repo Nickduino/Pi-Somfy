@@ -555,38 +555,29 @@ button[class*="press-button-"]:hover { background-color: #dee2e6; box-shadow: va
 /* ============ MANUAL OPERATION ============ */
 #action_manual { display: flex; flex-flow: row wrap; gap: 10px; padding: 4px; }
 .shutterRemote {
-    width: 110px; margin: 0; padding: 14px 8px 14px;
-    border-radius: 30px;
-    /* cream body with silver metallic accent stripes down both sides */
-    background:
-        linear-gradient(to bottom, rgba(255,255,255,0.55) 0%, transparent 35%, rgba(0,0,0,0.06) 100%),
-        linear-gradient(to right,
-            #8e8c87 0%, #bdbbb5 9px, #f0eeea 20px,
-            #faf9f7 50%,
-            #f0eeea calc(100% - 20px), #bdbbb5 calc(100% - 9px), #8e8c87 100%);
-    box-shadow: 0 8px 22px rgba(0,0,0,0.26), 0 2px 5px rgba(0,0,0,0.14),
-                inset 0 2px 4px rgba(255,255,255,0.95), inset 0 -2px 4px rgba(0,0,0,0.07);
+    width: 110px; margin: 0; padding: 12px 8px 12px;
+    border-radius: 24px;
+    background: linear-gradient(170deg, #f4f4f4 0%, #e0e0e0 100%);
+    box-shadow: 0 4px 14px rgba(0,0,0,0.18), inset 0 1px 0 rgba(255,255,255,0.9);
     transition: box-shadow var(--transition);
     display: flex; flex-direction: column; align-items: center; gap: 7px;
 }
-.shutterRemote:hover { box-shadow: 0 10px 26px rgba(0,0,0,0.3), 0 2px 5px rgba(0,0,0,0.14),
-                inset 0 2px 4px rgba(255,255,255,0.95), inset 0 -2px 4px rgba(0,0,0,0.07); }
+.shutterRemote:hover { box-shadow: 0 6px 18px rgba(0,0,0,0.24), inset 0 1px 0 rgba(255,255,255,0.9); }
 .shutterRemote .name { text-align: center; font-size: 13px; font-weight: 700; color: #555; margin-bottom: 0; }
 .shutterRemote .position { text-align: center; font-size: 20px; font-weight: 700; color: #222; margin-bottom: 0; }
 .shutterRemote .state { text-align: center; font-size: 12px; font-weight: 600; color: #2272c3; min-height: 1.2em; }
 .shutterRemote .myPosition { text-align: center; font-size: 11px; font-weight: 600; color: #999; min-height: 1.2em; margin-bottom: 2px; }
 .shutterRemote .myPosition.unset { color: #c47800; }
-.shutterRemote.moving { box-shadow: 0 0 0 2px var(--color-primary), 0 8px 22px rgba(0,0,0,0.26),
-                inset 0 2px 4px rgba(255,255,255,0.95); }
+.shutterRemote.moving { box-shadow: 0 0 0 2px var(--color-primary), 0 4px 14px rgba(0,0,0,0.18), inset 0 1px 0 rgba(255,255,255,0.9); }
 /* drop-shadow follows the SVG shape, giving each button real physical depth */
 .shutterRemote a {
     display: block; cursor: pointer; outline: none;
-    filter: drop-shadow(0 4px 0 rgba(0,0,0,0.32));
+    filter: drop-shadow(0 4px 0 rgba(0,0,0,0.35));
     transition: transform 0.08s ease, filter 0.08s ease;
     -webkit-tap-highlight-color: transparent;
 }
-.shutterRemote a:hover  { filter: drop-shadow(0 4px 0 rgba(0,0,0,0.32)) brightness(1.08); }
-.shutterRemote a:active { transform: translateY(3px); filter: drop-shadow(0 1px 0 rgba(0,0,0,0.32)) brightness(0.88); }
+.shutterRemote a:hover  { filter: drop-shadow(0 4px 0 rgba(0,0,0,0.35)) brightness(1.08); }
+.shutterRemote a:active { transform: translateY(3px); filter: drop-shadow(0 1px 0 rgba(0,0,0,0.35)) brightness(0.9); }
 .shutterRemote a svg { display: block; width: 60px; height: auto; }
 
 /* ============ SVG ICONS ============ */
