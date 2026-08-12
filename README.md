@@ -403,7 +403,9 @@ Pi-Somfy can integrate directly with [Home Assistant](https://www.home-assistant
 
 1. In Home Assistant, go to **HACS → Integrations**.
 2. Click the three-dot menu (top right) and select **Custom repositories**.
-3. Add `https://github.com/Nickduino/Pi-Somfy` with category **Integration** and click **Add**.
+3. Add `https://github.com/Nickduino/Pi-Somfy` with category **Integration** and click **Add** — or use the button below:
+
+   [![Open your Home Assistant instance and open a repository inside the Home Assistant Community Store.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=Nickduino&repository=Pi-Somfy&category=integration)
 4. Search for "Pi-Somfy" in HACS, click **Download**, and restart Home Assistant.
 5. Go to **Settings → Devices & Services → Add Integration**, search for "Pi-Somfy", and enter the IP address and port of your Pi-Somfy instance (default port: 80).
 
