@@ -65,11 +65,15 @@ if bashio::config.has_value 'mqtt_server'; then
     fi
     bashio::log.info "MQTT enabled: broker ${MQTT_SERVER}:${MQTT_PORT}"
 
-    sed -i "s|^MQTT_Server.*|MQTT_Server = ${MQTT_SERVER}|" "${CONFIG_FILE}"
-    sed -i "s|^MQTT_Port.*|MQTT_Port = ${MQTT_PORT}|" "${CONFIG_FILE}"
-    sed -i "s|^MQTT_User.*|MQTT_User = ${MQTT_USER}|" "${CONFIG_FILE}"
-    sed -i "s|^MQTT_Password.*|MQTT_Password = ${MQTT_PASSWORD}|" "${CONFIG_FILE}"
-    sed -i "s|^MQTT_ClientID.*|MQTT_ClientID = ${MQTT_CLIENT_ID}|" "${CONFIG_FILE}"
+    for entry in "MQTT_Server:${MQTT_SERVER}" "MQTT_Port:${MQTT_PORT}" "MQTT_User:${MQTT_USER}" "MQTT_Password:${MQTT_PASSWORD}" "MQTT_ClientID:${MQTT_CLIENT_ID}"; do
+        key="${entry%%:*}"
+        value="${entry#*:}"
+        if grep -q "^${key}" "${CONFIG_FILE}"; then
+            sed -i "s|^${key}.*|${key} = ${value}|" "${CONFIG_FILE}"
+        else
+            sed -i "/^\[MQTT\]/a ${key} = ${value}" "${CONFIG_FILE}"
+        fi
+    done
     MQTT_ARGS="-m"
 else
     bashio::log.info "MQTT disabled (set mqtt_server in add-on options to enable)"
