@@ -44,39 +44,33 @@ else
     bashio::log.info "RX receiver disabled (set rx_gpio_pin in add-on options to enable)"
 fi
 
-# MQTT (Home Assistant auto-discovery via a broker) is optional — only
-# write the [MQTT] section and pass -m to operateShutters.py if the user
-# set mqtt_server, mirroring the rx_gpio_pin pattern above.
+# MQTT (Home Assistant auto-discovery via a broker) is optional — pulled
+# from the Supervisor's mqtt service (e.g. the Mosquitto add-on) rather
+# than asking the user to re-enter broker details already known to HA.
 MQTT_ARGS=""
-if bashio::config.has_value 'mqtt_server'; then
-    MQTT_SERVER=$(bashio::config 'mqtt_server')
-    MQTT_PORT=$(bashio::config 'mqtt_port')
-    MQTT_CLIENT_ID=$(bashio::config 'mqtt_client_id')
-    # mqtt_user/mqtt_password stay optional even with mqtt_server set (a
-    # broker without auth) — read defensively rather than trusting
-    # bashio::config's return value for a genuinely-absent optional key.
-    MQTT_USER=""
-    if bashio::config.has_value 'mqtt_user'; then
-        MQTT_USER=$(bashio::config 'mqtt_user')
-    fi
-    MQTT_PASSWORD=""
-    if bashio::config.has_value 'mqtt_password'; then
-        MQTT_PASSWORD=$(bashio::config 'mqtt_password')
-    fi
-    bashio::log.info "MQTT enabled: broker ${MQTT_SERVER}:${MQTT_PORT}"
+if bashio::config.true 'enable_mqtt'; then
+    if bashio::services.available 'mqtt'; then
+        MQTT_HOST=$(bashio::services mqtt "host")
+        MQTT_PORT=$(bashio::services mqtt "port")
+        MQTT_USER=$(bashio::services mqtt "username")
+        MQTT_PASSWORD=$(bashio::services mqtt "password")
+        bashio::log.info "MQTT enabled: broker ${MQTT_HOST}:${MQTT_PORT}"
 
-    for entry in "MQTT_Server:${MQTT_SERVER}" "MQTT_Port:${MQTT_PORT}" "MQTT_User:${MQTT_USER}" "MQTT_Password:${MQTT_PASSWORD}" "MQTT_ClientID:${MQTT_CLIENT_ID}"; do
-        key="${entry%%:*}"
-        value="${entry#*:}"
-        if grep -q "^${key}" "${CONFIG_FILE}"; then
-            sed -i "s|^${key}.*|${key} = ${value}|" "${CONFIG_FILE}"
-        else
-            sed -i "/^\[MQTT\]/a ${key} = ${value}" "${CONFIG_FILE}"
-        fi
-    done
-    MQTT_ARGS="-m"
+        for entry in "MQTT_Server:${MQTT_HOST}" "MQTT_Port:${MQTT_PORT}" "MQTT_User:${MQTT_USER}" "MQTT_Password:${MQTT_PASSWORD}" "MQTT_ClientID:somfy-mqtt-bridge"; do
+            key="${entry%%:*}"
+            value="${entry#*:}"
+            if grep -q "^${key}" "${CONFIG_FILE}"; then
+                sed -i "s|^${key}.*|${key} = ${value}|" "${CONFIG_FILE}"
+            else
+                sed -i "/^\[MQTT\]/a ${key} = ${value}" "${CONFIG_FILE}"
+            fi
+        done
+        MQTT_ARGS="-m"
+    else
+        bashio::log.warning "enable_mqtt is on but no MQTT broker add-on was found — MQTT disabled"
+    fi
 else
-    bashio::log.info "MQTT disabled (set mqtt_server in add-on options to enable)"
+    bashio::log.info "MQTT disabled (set enable_mqtt in add-on options to enable)"
 fi
 
 # Ensure log location exists and is writable

@@ -27,11 +27,7 @@ This add-on runs [Pi-Somfy](https://github.com/Nickduino/Pi-Somfy) directly on y
 | `spi_mosi`       | `20`                    | CC1101 bit-banged SPI MOSI GPIO (only used when `rx_gpio_pin` is set)    |
 | `spi_miso`       | `19`                    | CC1101 bit-banged SPI MISO GPIO (only used when `rx_gpio_pin` is set)    |
 | `spi_csn`        | `16`                    | CC1101 bit-banged SPI chip-select GPIO (only used when `rx_gpio_pin` is set) |
-| `mqtt_server`    | (none)                  | MQTT broker host/IP. Leave blank to disable MQTT entirely.              |
-| `mqtt_port`      | `1883`                  | MQTT broker port (only used when `mqtt_server` is set)                  |
-| `mqtt_user`      | (none)                  | MQTT broker username, if the broker requires auth                       |
-| `mqtt_password`  | (none)                  | MQTT broker password, if the broker requires auth                       |
-| `mqtt_client_id` | `somfy-mqtt-bridge`     | MQTT client ID — must be unique if you run more than one Pi-Somfy instance against the same broker |
+| `enable_mqtt`    | `false`                 | Enable the MQTT bridge, using the broker connected via the Supervisor (e.g. the Mosquitto add-on) |
 
 ### Physical remote receiver (optional)
 
@@ -51,12 +47,13 @@ and power the Pi back on.
 
 ### MQTT (optional)
 
-Setting `mqtt_server` enables the MQTT bridge alongside the web UI, publishing
+Setting `enable_mqtt` enables the MQTT bridge alongside the web UI, publishing
 Home Assistant MQTT auto-discovery for every shutter (cover entities with
-live position and open/closing state) to the broker at `mqtt_server`. Useful
-if you already run a broker for other devices and want push-based updates
-instead of the custom integration's REST polling. Leave `mqtt_server` blank
-to run without MQTT, exactly as before.
+live position and open/closing state) to whichever broker is connected via
+the Supervisor — install and start the official Mosquitto broker add-on and
+Pi-Somfy will find it automatically, no broker details to enter. Useful if
+you want push-based updates instead of the custom integration's REST polling.
+Leave `enable_mqtt` off to run without MQTT, exactly as before.
 
 ## Web UI
 
@@ -83,7 +80,7 @@ Shutter configuration and rolling codes are stored in `/data/operateShutters.con
 
 ## Notes
 
-- This add-on runs Pi-Somfy with the web interface, scheduler, and (if `mqtt_server` is set) MQTT — no Alexa emulation
+- This add-on runs Pi-Somfy with the web interface, scheduler, and (if `enable_mqtt` is set) MQTT — no Alexa emulation
 - For Alexa integration, run Pi-Somfy standalone on a dedicated Raspberry Pi
 - Shutter position is estimated based on movement timing, but persists across restarts (saved to `/data/operateShutters.conf`'s `[ShutterPositions]` section as it changes)
 
