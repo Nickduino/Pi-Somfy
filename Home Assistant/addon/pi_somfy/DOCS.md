@@ -55,6 +55,10 @@ Pi-Somfy will find it automatically, no broker details to enter. Useful if
 you want push-based updates instead of the custom integration's REST polling.
 Leave `enable_mqtt` off to run without MQTT, exactly as before.
 
+If your broker is not running as a Home Assistant add-on, this toggle will not
+find it. Run Pi-Somfy standalone with `-m` and set the broker details in
+`operateShutters.conf` instead.
+
 ## Web UI
 
 The add-on provides a web interface accessible in two ways:

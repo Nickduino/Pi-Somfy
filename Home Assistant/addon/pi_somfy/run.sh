@@ -56,7 +56,16 @@ if bashio::config.true 'enable_mqtt'; then
         MQTT_PASSWORD=$(bashio::services mqtt "password")
         bashio::log.info "MQTT enabled: broker ${MQTT_HOST}:${MQTT_PORT}"
 
-        for entry in "MQTT_Server:${MQTT_HOST}" "MQTT_Port:${MQTT_PORT}" "MQTT_User:${MQTT_USER}" "MQTT_Password:${MQTT_PASSWORD}" "MQTT_ClientID:somfy-mqtt-bridge"; do
+        if ! grep -q "^\[MQTT\]" "${CONFIG_FILE}"; then
+            printf '\n[MQTT]\n' >> "${CONFIG_FILE}"
+        fi
+
+        for entry in "MQTT_Server:${MQTT_HOST}" \
+                     "MQTT_Port:${MQTT_PORT}" \
+                     "MQTT_User:${MQTT_USER}" \
+                     "MQTT_Password:${MQTT_PASSWORD}" \
+                     "MQTT_ClientID:somfy-mqtt-bridge" \
+                     "EnableDiscovery:true"; do
             key="${entry%%:*}"
             value="${entry#*:}"
             if grep -q "^${key}" "${CONFIG_FILE}"; then
