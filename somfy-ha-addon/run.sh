@@ -44,6 +44,44 @@ else
     bashio::log.info "RX receiver disabled (set rx_gpio_pin in add-on options to enable)"
 fi
 
+# MQTT (Home Assistant auto-discovery via a broker) is optional — pulled
+# from the Supervisor's mqtt service (e.g. the Mosquitto add-on) rather
+# than asking the user to re-enter broker details already known to HA.
+MQTT_ARGS=""
+if bashio::config.true 'enable_mqtt'; then
+    if bashio::services.available 'mqtt'; then
+        MQTT_HOST=$(bashio::services mqtt "host")
+        MQTT_PORT=$(bashio::services mqtt "port")
+        MQTT_USER=$(bashio::services mqtt "username")
+        MQTT_PASSWORD=$(bashio::services mqtt "password")
+        bashio::log.info "MQTT enabled: broker ${MQTT_HOST}:${MQTT_PORT}"
+
+        if ! grep -q "^\[MQTT\]" "${CONFIG_FILE}"; then
+            printf '\n[MQTT]\n' >> "${CONFIG_FILE}"
+        fi
+
+        for entry in "MQTT_Server:${MQTT_HOST}" \
+                     "MQTT_Port:${MQTT_PORT}" \
+                     "MQTT_User:${MQTT_USER}" \
+                     "MQTT_Password:${MQTT_PASSWORD}" \
+                     "MQTT_ClientID:somfy-mqtt-bridge" \
+                     "EnableDiscovery:true"; do
+            key="${entry%%:*}"
+            value="${entry#*:}"
+            if grep -q "^${key}" "${CONFIG_FILE}"; then
+                sed -i "s|^${key}.*|${key} = ${value}|" "${CONFIG_FILE}"
+            else
+                sed -i "/^\[MQTT\]/a ${key} = ${value}" "${CONFIG_FILE}"
+            fi
+        done
+        MQTT_ARGS="-m"
+    else
+        bashio::log.warning "enable_mqtt is on but no MQTT broker add-on was found — MQTT disabled"
+    fi
+else
+    bashio::log.info "MQTT disabled (set enable_mqtt in add-on options to enable)"
+fi
+
 # Ensure log location exists and is writable
 sed -i "s|^LogLocation.*|LogLocation = /data/|" "${CONFIG_FILE}"
 
@@ -74,9 +112,10 @@ if [ "${IS_PI5}" = true ]; then
     bashio::log.info "Pi 5 detected — using lgpio (no pigpiod needed)"
 else
     bashio::log.info "Starting pigpiod..."
-    # Deliberately not passing -m (disable alerts): -m silently prevents
-    # pi.callback() from ever delivering edge notifications, which the RX
-    # receiver needs when rx_gpio_pin is set.
+    # Deliberately not passing pigpiod's own -m flag (disable alerts) here —
+    # unrelated to operateShutters.py's -m/MQTT_ARGS above. pigpiod's -m
+    # silently prevents pi.callback() from ever delivering edge
+    # notifications, which the RX receiver needs when rx_gpio_pin is set.
     pigpiod -l
     sleep 1
 
@@ -88,7 +127,7 @@ else
     bashio::log.info "pigpiod started successfully"
 fi
 
-# Launch Pi-Somfy with web interface only (no MQTT, no Alexa)
+# Launch Pi-Somfy with the web interface (no Alexa), MQTT if configured above
 cd /somfy
 bashio::log.info "Starting Pi-Somfy..."
-exec python3 operateShutters.py -c "${CONFIG_FILE}" -a
+exec python3 operateShutters.py -c "${CONFIG_FILE}" -a ${MQTT_ARGS}

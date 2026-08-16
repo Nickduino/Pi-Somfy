@@ -6,17 +6,21 @@
 # This script is only useful for building the add-on locally outside
 # of Home Assistant Supervisor.
 #
-# Usage:  cd "somfy-ha-addon" && bash build.sh
+# Usage:  cd "Home Assistant/addon/pi_somfy" && bash build.sh
 
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 
-echo "Building Pi-Somfy add-on locally..."
+# Read from config.yaml rather than hardcoding, so this can't drift out of
+# sync with the tag Supervisor actually builds against.
+BUILD_VERSION="$(grep -m1 '^version:' "${SCRIPT_DIR}/config.yaml" | sed -E 's/version: *"?([^"]+)"?/\1/')"
+
+echo "Building Pi-Somfy add-on locally (version ${BUILD_VERSION})..."
 docker build \
     --build-arg BUILD_FROM=ghcr.io/home-assistant/aarch64-base:latest \
-    --build-arg BUILD_VERSION=3.0.0 \
-    -t local/pi_somfy:3.0.0 \
+    --build-arg BUILD_VERSION="${BUILD_VERSION}" \
+    -t "local/pi_somfy:${BUILD_VERSION}" \
     "${SCRIPT_DIR}"
 
-echo "Done. Run with:  docker run --rm -it local/pi_somfy:3.0.0"
+echo "Done. Run with:  docker run --rm -it local/pi_somfy:${BUILD_VERSION}"

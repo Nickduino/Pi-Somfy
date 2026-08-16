@@ -40,12 +40,13 @@ RUN git clone --branch v${BUILD_VERSION} --depth 1 https://github.com/Nickduino/
 
 WORKDIR /somfy
 
-# Install Python dependencies (excluding paho-mqtt — not needed without -m flag)
+# Install Python dependencies
 RUN pip3 install --no-cache-dir --break-system-packages \
     ephem \
     configparser \
     Flask \
-    requests
+    requests \
+    paho-mqtt
 
 # Copy run script
 COPY run.sh /

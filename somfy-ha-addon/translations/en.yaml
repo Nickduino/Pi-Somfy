@@ -1,7 +1,29 @@
 ---
 configuration:
   gpio_pin:
-    name: GPIO Pin
+    name: Transmitter GPIO pin
+    description: GPIO pin the 433.42 MHz transmitter is wired to.
+  rx_gpio_pin:
+    name: Receiver GPIO pin (optional)
     description: >-
-      The GPIO pin number where the 433.42 MHz RF transmitter is connected.
-      Default is GPIO 4.
+      GPIO wired to a CC1101 receiver's data output, for tracking physical
+      remote button presses. Leave blank to disable the receiver.
+  spi_sck:
+    name: CC1101 SPI clock GPIO
+    description: Only used when a receiver GPIO pin is set.
+  spi_mosi:
+    name: CC1101 SPI MOSI GPIO
+    description: Only used when a receiver GPIO pin is set.
+  spi_miso:
+    name: CC1101 SPI MISO GPIO
+    description: Only used when a receiver GPIO pin is set.
+  spi_csn:
+    name: CC1101 SPI chip-select GPIO
+    description: Only used when a receiver GPIO pin is set.
+  enable_mqtt:
+    name: Enable MQTT
+    description: >-
+      Publish shutters to Home Assistant using MQTT auto-discovery, so cover
+      entities appear automatically with push-based updates instead of REST
+      polling. Requires the Mosquitto broker add-on to be installed and
+      running. Leave off to use the web UI and custom integration only.
