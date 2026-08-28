@@ -385,17 +385,19 @@ If you prefer to state the likes of "Alexa, OPEN the shutter" or "Alexa, CLOSE t
 
 ## 7 Home Assistant Integration (Recommended)
 
-Pi-Somfy can integrate directly with [Home Assistant](https://www.home-assistant.io/) using a **custom component** and an optional **Supervisor add-on**. This is the recommended approach — it communicates directly with the Pi-Somfy web API, so **no MQTT broker is needed**.
+Pi-Somfy integrates with [Home Assistant](https://www.home-assistant.io/) in two ways. **Which one you want depends on where the RF transmitter is wired.**
 
 ### Which do you need?
 
-| Your Setup | What to install |
+| Your setup | What to install |
 |---|---|
-| RF transmitter attached to a **separate Pi** on the network | Custom Component only |
-| RF transmitter attached to the **same Pi running Home Assistant** | Custom Component **and** Add-on |
+| The RF transmitter is on the **same machine** that runs Home Assistant | **Add-on** |
+| Pi-Somfy runs on a **separate Pi** elsewhere on your network | **Custom Component** |
 
-- The **Custom Component** adds Pi-Somfy as a native HA integration with cover entities, position control, and automatic discovery.
-- The **Add-on** runs the Pi-Somfy backend (web server + GPIO control) as a Supervisor add-on, so you don't need a separate Pi.
+- **Same machine → Add-on.** The add-on runs the Pi-Somfy backend (web server, scheduler, and GPIO control) directly on your Home Assistant system, so you don't need a second Pi. Turn on its **Enable MQTT** option and your shutters appear in Home Assistant automatically — this is the recommended way to get entities when running on the same machine.
+- **Separate machine → Custom Component.** The custom component talks to a Pi-Somfy instance running elsewhere over its web API, adding cover entities with position control. Use this when Home Assistant can't reach the GPIO pins itself.
+
+The two are not mutually exclusive — a local add-on install can still be paired with the custom component if you prefer REST polling over MQTT — but for a same-machine setup the add-on with MQTT is the simpler path.
 
 ### Installing the Custom Component
 
@@ -422,6 +424,7 @@ Pi-Somfy can integrate directly with [Home Assistant](https://www.home-assistant
 1. Go to **Settings → Add-ons → Add-on Store**, click the three-dot menu (top right) and select **Repositories**.
 2. Add `https://github.com/Nickduino/Pi-Somfy` and click **Add**.
 3. Find "Pi-Somfy" under the new repository and install it.
+4. Configure the GPIO pin in the add-on settings (default: GPIO 4), then start the add-on.
 
 #### Option B: Manual install
 
@@ -429,7 +432,13 @@ Pi-Somfy can integrate directly with [Home Assistant](https://www.home-assistant
 2. Go to **Settings → Add-ons → Add-on Store** and click the refresh button.
 3. Find "Pi-Somfy" under "Local add-ons" and install it.
 4. Configure the GPIO pin in the add-on settings (default: GPIO 4).
-5. Start the add-on, then install the Custom Component (above) pointing to `localhost` or `homeassistant.local`.
+5. Start the add-on.
+
+#### Getting your shutters into Home Assistant
+
+Install the official **Mosquitto broker** add-on if you don't already run one, then turn on **Enable MQTT** in the Pi-Somfy add-on configuration. The add-on reads the broker details from the Supervisor, so there is nothing to enter by hand, and your shutters show up as cover entities automatically via MQTT discovery.
+
+If your broker runs outside Home Assistant, the toggle won't find it — run Pi-Somfy standalone with `-m` and set the broker details in `operateShutters.conf` instead.
 
 ### Raspberry Pi 5 Support (Experimental)
 
