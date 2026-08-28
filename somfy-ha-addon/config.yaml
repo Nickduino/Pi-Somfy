@@ -1,6 +1,6 @@
 name: "Pi-Somfy"
 description: "Operate Somfy RTS shutters via 433.42 MHz RF on Raspberry Pi GPIO"
-version: "3.2"
+version: "3.3"
 slug: "pi_somfy"
 url: "https://github.com/Nickduino/Pi-Somfy"
 arch:
