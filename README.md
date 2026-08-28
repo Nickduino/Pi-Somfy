@@ -403,19 +403,29 @@ Pi-Somfy can integrate directly with [Home Assistant](https://www.home-assistant
 
 1. In Home Assistant, go to **HACS → Integrations**.
 2. Click the three-dot menu (top right) and select **Custom repositories**.
-3. Add `https://github.com/Nickduino/Pi-Somfy` with category **Integration** and click **Add**.
+3. Add `https://github.com/Nickduino/Pi-Somfy` with category **Integration** and click **Add** — or use the button below:
+
+   [![Open your Home Assistant instance and open a repository inside the Home Assistant Community Store.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=Nickduino&repository=Pi-Somfy&category=integration)
 4. Search for "Pi-Somfy" in HACS, click **Download**, and restart Home Assistant.
 5. Go to **Settings → Devices & Services → Add Integration**, search for "Pi-Somfy", and enter the IP address and port of your Pi-Somfy instance (default port: 80).
 
 #### Option B: Manual install
 
-1. Copy the `Home Assistant/custom_components/pi_somfy` folder into your Home Assistant `config/custom_components/` directory.
+1. Copy the `custom_components/pi_somfy` folder into your Home Assistant `config/custom_components/` directory.
 2. Restart Home Assistant.
 3. Go to **Settings → Devices & Services → Add Integration**, search for "Pi-Somfy", and enter the IP address and port of your Pi-Somfy instance (default port: 80).
 
 ### Installing the Add-on
 
-1. Copy the `Home Assistant/addon/pi_somfy` folder to your Home Assistant `addons/pi_somfy` directory.
+#### Option A: Add-on repository (recommended)
+
+1. Go to **Settings → Add-ons → Add-on Store**, click the three-dot menu (top right) and select **Repositories**.
+2. Add `https://github.com/Nickduino/Pi-Somfy` and click **Add**.
+3. Find "Pi-Somfy" under the new repository and install it.
+
+#### Option B: Manual install
+
+1. Copy the `somfy-ha-addon` folder to your Home Assistant `addons/somfy-ha-addon` directory.
 2. Go to **Settings → Add-ons → Add-on Store** and click the refresh button.
 3. Find "Pi-Somfy" under "Local add-ons" and install it.
 4. Configure the GPIO pin in the add-on settings (default: GPIO 4).
