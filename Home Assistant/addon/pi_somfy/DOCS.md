@@ -19,14 +19,15 @@ This add-on runs [Pi-Somfy](https://github.com/Nickduino/Pi-Somfy) directly on y
 
 ## Configuration
 
-| Option        | Default | Description                                                              |
-|---------------|---------|---------------------------------------------------------------------------|
-| `gpio_pin`    | `4`     | GPIO pin number for the 433.42 MHz transmitter                          |
-| `rx_gpio_pin` | (none)  | GPIO wired to a CC1101 receiver's data output. Leave blank to disable the physical-remote receiver entirely. |
-| `spi_sck`     | `21`    | CC1101 bit-banged SPI clock GPIO (only used when `rx_gpio_pin` is set)   |
-| `spi_mosi`    | `20`    | CC1101 bit-banged SPI MOSI GPIO (only used when `rx_gpio_pin` is set)    |
-| `spi_miso`    | `19`    | CC1101 bit-banged SPI MISO GPIO (only used when `rx_gpio_pin` is set)    |
-| `spi_csn`     | `16`    | CC1101 bit-banged SPI chip-select GPIO (only used when `rx_gpio_pin` is set) |
+| Option           | Default                | Description                                                              |
+|------------------|-------------------------|---------------------------------------------------------------------------|
+| `gpio_pin`       | `4`                     | GPIO pin number for the 433.42 MHz transmitter                          |
+| `rx_gpio_pin`    | (none)                  | GPIO wired to a CC1101 receiver's data output. Leave blank to disable the physical-remote receiver entirely. |
+| `spi_sck`        | `21`                    | CC1101 bit-banged SPI clock GPIO (only used when `rx_gpio_pin` is set)   |
+| `spi_mosi`       | `20`                    | CC1101 bit-banged SPI MOSI GPIO (only used when `rx_gpio_pin` is set)    |
+| `spi_miso`       | `19`                    | CC1101 bit-banged SPI MISO GPIO (only used when `rx_gpio_pin` is set)    |
+| `spi_csn`        | `16`                    | CC1101 bit-banged SPI chip-select GPIO (only used when `rx_gpio_pin` is set) |
+| `enable_mqtt`    | `false`                 | Enable the MQTT bridge, using the broker connected via the Supervisor (e.g. the Mosquitto add-on) |
 
 ### Physical remote receiver (optional)
 
@@ -43,6 +44,20 @@ practice on Home Assistant OS. Power down the Pi, read the Micro-SD card
 on another computer (it mounts as a normal FAT32 `boot`/`bootfs` drive),
 add `dtparam=spi=on` to the bottom of `config.txt`, then reinsert the card
 and power the Pi back on.
+
+### MQTT (optional)
+
+Setting `enable_mqtt` enables the MQTT bridge alongside the web UI, publishing
+Home Assistant MQTT auto-discovery for every shutter (cover entities with
+live position and open/closing state) to whichever broker is connected via
+the Supervisor — install and start the official Mosquitto broker add-on and
+Pi-Somfy will find it automatically, no broker details to enter. Useful if
+you want push-based updates instead of the custom integration's REST polling.
+Leave `enable_mqtt` off to run without MQTT, exactly as before.
+
+If your broker is not running as a Home Assistant add-on, this toggle will not
+find it. Run Pi-Somfy standalone with `-m` and set the broker details in
+`operateShutters.conf` instead.
 
 ## Web UI
 
@@ -69,8 +84,8 @@ Shutter configuration and rolling codes are stored in `/data/operateShutters.con
 
 ## Notes
 
-- This add-on runs Pi-Somfy with the web interface and scheduler only (no MQTT, no Alexa emulation)
-- For MQTT or Alexa integration, run Pi-Somfy standalone on a dedicated Raspberry Pi
+- This add-on runs Pi-Somfy with the web interface, scheduler, and (if `enable_mqtt` is set) MQTT — no Alexa emulation
+- For Alexa integration, run Pi-Somfy standalone on a dedicated Raspberry Pi
 - Shutter position is estimated based on movement timing, but persists across restarts (saved to `/data/operateShutters.conf`'s `[ShutterPositions]` section as it changes)
 
 ## Support

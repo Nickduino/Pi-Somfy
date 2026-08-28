@@ -1,6 +1,6 @@
 name: "Pi-Somfy"
 description: "Operate Somfy RTS shutters via 433.42 MHz RF on Raspberry Pi GPIO"
-version: "3.0.0"
+version: "3.2"
 slug: "pi_somfy"
 url: "https://github.com/Nickduino/Pi-Somfy"
 arch:
@@ -31,12 +31,15 @@ ports:
 ports_description:
   80/tcp: "Pi-Somfy Web UI"
 watchdog: "http://[HOST]:[PORT:80]/cmd/getConfig"
+services:
+  - mqtt:want
 options:
   gpio_pin: 4
   spi_sck: 21
   spi_mosi: 20
   spi_miso: 19
   spi_csn: 16
+  enable_mqtt: false
 schema:
   gpio_pin: "int(0,27)"
   rx_gpio_pin: "int(0,27)?"
@@ -44,5 +47,6 @@ schema:
   spi_mosi: "int(0,27)"
   spi_miso: "int(0,27)"
   spi_csn: "int(0,27)"
+  enable_mqtt: "bool"
 discovery:
   - pi_somfy
