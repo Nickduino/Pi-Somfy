@@ -1,6 +1,7 @@
 {
   "domain": "pi_somfy",
   "name": "Pi-Somfy",
+  "categories": ["blinds_curtains"],
   "codeowners": ["@Nickduino", "@MichaelB2018"],
   "config_flow": true,
   "documentation": "https://github.com/Nickduino/Pi-Somfy",
