@@ -576,6 +576,4 @@ The following fixes were contributed by the community and incorporated into this
 
 
 ## 11 License
-![Image of the license](https://i.creativecommons.org/l/by-nc-sa/4.0/88x31.png)
-
-[Attribution-NonCommercial-ShareAlike 4.0 International (CC BY-NC-SA 4.0)](https://creativecommons.org/licenses/by-nc-sa/4.0/)
+Pi-Somfy is licensed under the [GNU General Public License v3.0](LICENSE).

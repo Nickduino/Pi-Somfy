@@ -1,13 +1,12 @@
 {
   "domain": "pi_somfy",
   "name": "Pi-Somfy",
-  "codeowners": ["@Nickduino"],
+  "codeowners": ["@Nickduino", "@MichaelB2018"],
   "config_flow": true,
   "documentation": "https://github.com/Nickduino/Pi-Somfy",
-  "hassio": true,
   "integration_type": "hub",
   "iot_class": "local_polling",
   "issue_tracker": "https://github.com/Nickduino/Pi-Somfy/issues",
   "requirements": [],
-  "version": "3.3"
+  "version": "3.3.1"
 }

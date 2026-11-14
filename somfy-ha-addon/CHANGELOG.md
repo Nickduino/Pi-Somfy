@@ -3,6 +3,12 @@
 This add-on's version always matches the [Pi-Somfy](https://github.com/Nickduino/Pi-Somfy)
 release it's built on, so each entry below is what's new in that release.
 
+## 3.3.1
+
+- Pi-Somfy is now licensed under the GNU General Public License v3.0 (previously CC BY-NC-SA 4.0).
+- The Home Assistant integration now passes the official HACS and hassfest validation, as
+  required for listing in the default HACS catalog. No functional changes.
+
 ## 3.3
 
 - Added an optional MQTT bridge to the add-on. Turn on **Enable MQTT** and your shutters
